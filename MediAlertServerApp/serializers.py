@@ -6,6 +6,7 @@ class MedicamentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Medicamento
         fields = ['id', 'nombre', 'dosis', 'frecuencia', 'usuario']
+        read_only_fields = ['usuario']
 
 
 class RecordatorioSerializer(serializers.ModelSerializer):

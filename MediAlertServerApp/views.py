@@ -6,10 +6,12 @@ from .models import Medicamento, Recordatorio, RegistroToma
 from .serializers import MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, UserSerializer, UserProfileSerializer
 from django.contrib.auth.models import User
 
-class MedicamentoListCreateView(generics.ListCreateAPIView):
-    queryset = Medicamento.objects.all()
+class MedicamentoViewSet(viewsets.ModelViewSet):
     serializer_class = MedicamentoSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Medicamento.objects.filter(usuario=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
@@ -24,13 +26,16 @@ class RecordatorioViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
 
-class RegistroTomaListCreateView(generics.ListCreateAPIView):
-    queryset = RegistroToma.objects.all()
+class RegistroTomaViewSet(viewsets.ModelViewSet):
     serializer_class = RegistroTomaSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        return RegistroToma.objects.filter(medicamento=self.request.user)
+
     def perform_create(self, serializer):
-        serializer.save(usuario=self.request.user)
+        serializer.save()
+
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
