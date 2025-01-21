@@ -7,10 +7,13 @@ class MedicamentoSerializer(serializers.ModelSerializer):
         model = Medicamento
         fields = ['id', 'nombre', 'dosis', 'frecuencia', 'usuario']
 
+
 class RecordatorioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recordatorio
-        fields = ['id', 'medicamento', 'fecha_hora', 'completado']
+        fields = ['id', 'medicamento', 'dosis', 'frecuencia', 'hora', 'activo']
+        read_only_fields = ['id']
+
 
 class RegistroTomaSerializer(serializers.ModelSerializer):
     class Meta:
