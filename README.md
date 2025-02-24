@@ -74,4 +74,111 @@ Endpoints:
    - DELETE /registros-toma/{id}/
      Delete an intake record
 
-Note: All endpoints (except register and login) require authentication. Ensure to include the access token in the request header.
+4. Farmacovigilancia
+   - GET /adverse-effects/
+     Retrieve list of adverse effects
+     Query Parameters:
+       - severity: Filter by severity (LEVE, MODERADA, GRAVE, MORTAL)
+       - type: Filter by type (A, B)
+       - from: Start date (YYYY-MM-DD)
+       - to: End date (YYYY-MM-DD)
+
+   - POST /adverse-effects/
+     Report new adverse effect
+     Body: {
+       "medication": <medication_id>,
+       "description": "Effect description",
+       "start_date": "YYYY-MM-DD",
+       "end_date": "YYYY-MM-DD",
+       "severity": "LEVE|MODERADA|GRAVE|MORTAL",
+       "type": "A|B",
+       "administration_route": "route",
+       "dosage": "dosage",
+       "frequency": "frequency"
+     }
+
+   - GET /adverse-effects/{id}/
+     Retrieve specific adverse effect details
+
+   - PUT /adverse-effects/{id}/
+     Update adverse effect details
+
+   - POST /adverse-effects/{id}/mark-as-reviewed/
+     Mark adverse effect as reviewed
+
+5. Dashboard (Professional Access Required)
+   - GET /dashboard/statistics/
+     Get general statistics of adverse effects
+     Response: {
+       "total_reports": number,
+       "by_severity": [{severity: string, count: number}],
+       "by_type": [{type: string, count: number}]
+     }
+
+   - GET /dashboard/medication-statistics/
+     Get statistics grouped by medication
+     Response: {
+       "most_reported": [{medication: string, count: number}],
+       "by_severity": [{medication: string, severity: string, count: number}]
+     }
+
+   - GET /dashboard/trends/
+     Get temporal analysis of adverse effects
+     Response: {
+       "daily_reports": [{date: string, count: number}],
+       "severity_trend": [{severity: string, count: number}]
+     }
+
+   - GET /dashboard/pending-reviews/
+     Get pending reviews information
+     Response: {
+       "pending": number,
+       "urgent_pending": number,
+       "recent_pending": [AdverseEffect]
+     }
+
+   - GET /dashboard/filtered-reports/
+     Get filtered adverse effects reports
+     Query Parameters:
+       - severity: Filter by severity
+       - medication: Filter by medication name
+       - from: Start date (YYYY-MM-DD)
+       - to: End date (YYYY-MM-DD)
+     Response: {
+       "count": number,
+       "results": [AdverseEffect]
+     }
+
+   - GET /dashboard/export-csv/
+     Export adverse effects data as CSV
+     Query Parameters: [Same as filtered-reports]
+
+   - GET /dashboard/export-json/
+     Export adverse effects data as JSON
+     Query Parameters: [Same as filtered-reports]
+
+Data Structures:
+
+1. AdverseEffect:
+   {
+     "id": number,
+     "patient": number,
+     "medication": number,
+     "description": string,
+     "start_date": string,
+     "end_date": string,
+     "severity": string,
+     "type": string,
+     "administration_route": string,
+     "dosage": string,
+     "frequency": string,
+     "reported_at": string,
+     "status": string
+   }
+
+Permissions:
+- Regular users can only view and report their own adverse effects
+- Professional users can access dashboard endpoints and view all reports
+- Only users with manage_reports permission can mark reports as reviewed
+
+Note: All endpoints (except register and login) require authentication. Include the access token in the request header.

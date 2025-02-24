@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.contrib.auth.models import User
 
 class Medicamento(models.Model):
     nombre = models.CharField(max_length=100)
@@ -28,3 +29,65 @@ class RegistroToma(models.Model):
 
     def __str__(self):
         return f"Toma de {self.medicamento.nombre} el {self.fecha_hora}"
+
+class AdverseEffect(models.Model):
+    SEVERITY_CHOICES = [
+        ('LEVE', 'Leve'),
+        ('MODERADA', 'Moderada'),
+        ('GRAVE', 'Grave'),
+        ('MORTAL', 'Mortal')
+    ]
+
+    TYPE_CHOICES = [
+        ('A', 'Tipo A - Aumentado/Predecible'),
+        ('B', 'Tipo B - Bizarro/No predecible')
+    ]
+
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='adverse_effects')
+    medication = models.ForeignKey('Medicamento', on_delete=models.CASCADE)
+    
+    # Detalles del efecto adverso
+    description = models.TextField()
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES)
+    type = models.CharField(max_length=1, choices=TYPE_CHOICES)
+    
+    # Detalles de la administración
+    administration_route = models.CharField(max_length=100)
+    dosage = models.CharField(max_length=100)
+    frequency = models.CharField(max_length=100)
+    
+    # Metadatos
+    reported_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=20, default='PENDING')
+
+    class Meta:
+        ordering = ['-reported_at']
+
+    class Meta:
+        permissions = [
+            ("view_all_reports", "Can view all adverse effect reports"),
+            ("manage_reports", "Can manage adverse effect reports"),
+            ("receive_alerts", "Can receive adverse effect alerts")
+        ]
+
+class AlertNotification(models.Model):
+    PRIORITY_CHOICES = [
+        ('LOW', 'Baja'),
+        ('MEDIUM', 'Media'),
+        ('HIGH', 'Alta'),
+        ('URGENT', 'Urgente')
+    ]
+
+    adverse_effect = models.ForeignKey(AdverseEffect, on_delete=models.CASCADE)
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']

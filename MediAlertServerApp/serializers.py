@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Medicamento, Recordatorio, RegistroToma
+from .models import Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification
 
 class MedicamentoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -40,3 +40,21 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'email')
+
+class AdverseEffectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdverseEffect
+        fields = '__all__'
+        read_only_fields = ('reported_at', 'updated_at', 'status')
+
+    def validate(self, data):
+        # Validar que end_date es posterior a start_date si existe
+        if 'end_date' in data and data['end_date'] < data['start_date']:
+            raise serializers.ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
+        return data
+
+class AlertNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AlertNotification
+        fields = '__all__'
+        read_only_fields = ('created_at', 'read_at')
