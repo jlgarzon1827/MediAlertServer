@@ -4,19 +4,79 @@ from datetime import datetime, timedelta
 from rest_framework import generics, permissions, viewsets, status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated, DjangoModelPermissions
 from rest_framework.decorators import permission_classes, action
 from django.db.models import Count, F, Q
 from django.db.models import Count, Avg, Max, Min
 from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.http import HttpResponse
 from .models import Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification
-from .serializers import MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, UserSerializer, UserProfileSerializer, AdverseEffectSerializer, AlertNotificationSerializer
+from .serializers import UserSerializer, UserProfileSerializer, RegisterSerializer, MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, AdverseEffectSerializer, AlertNotificationSerializer
 from .services import NotificationService
 from .report_generator import ReportGenerator
+from .permissions import IsProfessional
 
+
+class UserViewSet(viewsets.ModelViewSet):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        # Los profesionales pueden ver todos los usuarios
+        # Los pacientes solo pueden verse a sí mismos
+        if hasattr(self.request.user, 'profile') and self.request.user.profile.user_type == 'PROFESSIONAL':
+            return User.objects.all()
+        return User.objects.filter(id=self.request.user.id)
+    
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        """Endpoint para obtener el perfil del usuario actual"""
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['put', 'patch'])
+    def update_profile(self, request):
+        """Endpoint para actualizar el perfil del usuario actual"""
+        user = request.user
+        serializer = self.get_serializer(user, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
+    def set_professional(self, request, pk=None):
+        """Convertir un usuario en profesional (solo para profesionales)"""
+        try:
+            user = User.objects.get(pk=pk)
+            user.profile.user_type = 'PROFESSIONAL'
+            user.profile.save()
+            
+            # Añadir al grupo de profesionales si existe
+            professional_group, created = Group.objects.get_or_create(name='HealthProfessionals')
+            user.groups.add(professional_group)
+            
+            return Response({'status': 'user set as professional'})
+        except User.DoesNotExist:
+            return Response({'error': 'user not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    @action(detail=False, methods=['get'])
+    def permissions(self, request):
+        """Obtener los permisos del usuario actual"""
+        user = request.user
+        permissions = list(user.get_all_permissions())
+        
+        # Información adicional sobre el usuario
+        user_info = {
+            'is_professional': user.profile.user_type == 'PROFESSIONAL',
+            'groups': list(user.groups.values_list('name', flat=True)),
+            'permissions': permissions
+        }
+        
+        return Response(user_info)
 
 class MedicamentoViewSet(viewsets.ModelViewSet):
     serializer_class = MedicamentoSerializer
@@ -47,17 +107,27 @@ class RegistroTomaViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save()
-
-
+    
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (permissions.AllowAny,)
-    serializer_class = UserSerializer
-
+    serializer_class = RegisterSerializer  # Usar el RegisterSerializer en lugar de UserSerializer
+    
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        user = serializer.save()  # El RegisterSerializer ya manejaría los campos de profesional
+        
+        # Asignar al grupo de pacientes por defecto
+        patients_group, _ = Group.objects.get_or_create(name='Patients')
+        user.groups.add(patients_group)
+        
+        # Si es profesional, asignar al grupo de profesionales
+        if hasattr(user, 'profile') and user.profile.user_type == 'PROFESSIONAL':
+            professional_group, _ = Group.objects.get_or_create(name='HealthProfessionals')
+            user.groups.add(professional_group)
+        
+        # Generar tokens (código existente)
         refresh = RefreshToken.for_user(user)
         return Response({
             "user": UserSerializer(user).data,
@@ -78,18 +148,20 @@ class CanManageReports(BasePermission):
 
 class AdverseEffectViewSet(viewsets.ModelViewSet):
     serializer_class = AdverseEffectSerializer
-    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        # Filtrar por usuario si es paciente
-        if not self.request.user.is_staff:
-            return AdverseEffect.objects.filter(patient=self.request.user)
-        return AdverseEffect.objects.all()
+        # Los profesionales pueden ver todos los efectos adversos
+        # Los pacientes solo pueden ver los suyos
+        if hasattr(self.request.user, 'profile') and self.request.user.profile.user_type == 'PROFESSIONAL':
+            return AdverseEffect.objects.all()
+        return AdverseEffect.objects.filter(patient=self.request.user)
     
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticated()]
-        return [IsAuthenticated(), CanManageReports()]
+        elif self.action == 'mark_as_reviewed':
+            return [IsAuthenticated(), IsProfessional()]
+        return [IsAuthenticated()]
 
     def perform_create(self, serializer):
         adverse_effect = serializer.save(patient=self.request.user)
@@ -124,7 +196,19 @@ class AlertNotificationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class DashboardViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated, CanManageReports]
+    permission_classes = [IsAuthenticated, IsProfessional]
+
+    def get_permissions(self):
+        """
+        Verificar permisos específicos para cada endpoint
+        """
+        if self.action in ['statistics', 'medication_statistics', 'trends']:
+            # Solo requiere ser profesional
+            return [IsAuthenticated(), IsProfessional()]
+        else:
+            # Requiere permiso específico para gestionar reportes
+            return [IsAuthenticated(), IsProfessional(), 
+                   DjangoModelPermissions()]
 
     @action(detail=False, methods=['get'])
     def statistics(self, request):

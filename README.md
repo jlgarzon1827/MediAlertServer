@@ -9,7 +9,15 @@ User Management:
 1. Register
    - POST /register/
      Create a new user account
-     Body: {"username": "your_username", "email": "your_email@example.com", "password": "your_password"}
+     Body: {
+       "username": "your_username", 
+       "email": "your_email@example.com", 
+       "password": "your_password",
+       "is_professional": false,           // Optional, default: false
+       "professional_id": "",              // Optional, for professionals
+       "specialty": "",                    // Optional, for professionals
+       "institution": ""                   // Optional, for professionals
+     }
 
 2. Login
    - POST /login/
@@ -23,8 +31,21 @@ User Management:
      Body: {"refresh": "your_refresh_token"}
 
 4. User Profile
-   - GET /profile/
-     Retrieve user profile information
+   - GET /users/me/
+     Retrieve current user profile information
+     
+   - PUT /users/update_profile/
+     Update user profile information
+     Body: {
+       "first_name": "First Name",
+       "last_name": "Last Name",
+       "email": "email@example.com",
+       "profile": {
+         "phone": "123456789",
+         "specialty": "Specialty",         // For professionals
+         "institution": "Institution"      // For professionals
+       }
+     }
 
 Token Usage:
 - Use token in header: Authorization: Bearer <your_access_token>
@@ -77,6 +98,7 @@ Endpoints:
 4. Farmacovigilancia
    - GET /adverse-effects/
      Retrieve list of adverse effects
+     Note: Regular users see only their own reports, professionals see all reports
      Query Parameters:
        - severity: Filter by severity (LEVE, MODERADA, GRAVE, MORTAL)
        - type: Filter by type (A, B)
@@ -105,8 +127,19 @@ Endpoints:
 
    - POST /adverse-effects/{id}/mark-as-reviewed/
      Mark adverse effect as reviewed
+     Note: Requires professional access
 
-5. Dashboard (Professional Access Required)
+5. Notifications
+   - GET /notifications/
+     Retrieve list of notifications for authenticated user
+     
+   - POST /notifications/{id}/mark-as-read/
+     Mark notification as read
+     
+   - GET /notifications/unread/
+     Retrieve unread notifications
+
+6. Dashboard (Professional Access Required)
    - GET /dashboard/statistics/
      Get general statistics of adverse effects
      Response: {
@@ -176,9 +209,31 @@ Data Structures:
      "status": string
    }
 
-Permissions:
-- Regular users can only view and report their own adverse effects
-- Professional users can access dashboard endpoints and view all reports
-- Only users with manage_reports permission can mark reports as reviewed
+2. UserProfile:
+   {
+     "user_type": "PATIENT|PROFESSIONAL",
+     "professional_id": string,
+     "specialty": string,
+     "institution": string,
+     "phone": string
+   }
+
+3. AlertNotification:
+   {
+     "id": number,
+     "adverse_effect": number,
+     "title": string,
+     "message": string,
+     "priority": "LOW|MEDIUM|HIGH|URGENT",
+     "created_at": string,
+     "read_at": string
+   }
+
+Roles and Permissions:
+- All new users are assigned the "Patients" role by default
+- Users can be registered as professionals with the is_professional flag
+- Patients can only view and manage their own data
+- Professionals can access dashboard endpoints and view all adverse effect reports
+- Only professionals can mark reports as reviewed
 
 Note: All endpoints (except register and login) require authentication. Include the access token in the request header.

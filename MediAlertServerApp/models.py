@@ -1,6 +1,35 @@
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+class UserProfile(models.Model):
+    USER_TYPES = [
+        ('PATIENT', 'Paciente'),
+        ('PROFESSIONAL', 'Profesional de la salud')
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    user_type = models.CharField(max_length=20, choices=USER_TYPES, default='PATIENT')
+    professional_id = models.CharField(max_length=50, blank=True, null=True)
+    specialty = models.CharField(max_length=100, blank=True, null=True)
+    institution = models.CharField(max_length=200, blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.get_user_type_display()}"
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Crear perfil automáticamente cuando se crea un usuario"""
+    if created:
+        UserProfile.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    """Guardar perfil cuando se guarda el usuario"""
+    instance.profile.save()
 
 class Medicamento(models.Model):
     nombre = models.CharField(max_length=100)
@@ -9,7 +38,7 @@ class Medicamento(models.Model):
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.nombrez
+        return self.nombre
 
 class Recordatorio(models.Model):
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True)
@@ -65,8 +94,6 @@ class AdverseEffect(models.Model):
 
     class Meta:
         ordering = ['-reported_at']
-
-    class Meta:
         permissions = [
             ("view_all_reports", "Can view all adverse effect reports"),
             ("manage_reports", "Can manage adverse effect reports"),
