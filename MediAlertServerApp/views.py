@@ -12,9 +12,11 @@ from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 from django.http import HttpResponse
-from .models import Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification
-from .serializers import UserSerializer, UserProfileSerializer, RegisterSerializer, MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, AdverseEffectSerializer, AlertNotificationSerializer
-from .services import NotificationService
+from .models import DispositivoUsuario, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification
+from .serializers import UserSerializer, UserProfileSerializer, DispositivoUsuarioSerializer, \
+    RegisterSerializer, MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, \
+    AdverseEffectSerializer, AlertNotificationSerializer
+from .services import NotificationService, FirebaseService
 from .report_generator import ReportGenerator
 from .permissions import IsProfessional
 
@@ -77,6 +79,70 @@ class UserViewSet(viewsets.ModelViewSet):
         }
         
         return Response(user_info)
+    
+class DispositivoUsuarioViewSet(viewsets.ModelViewSet):
+    serializer_class = DispositivoUsuarioSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return DispositivoUsuario.objects.filter(usuario=self.request.user)
+    
+    def perform_create(self, serializer):
+        # Si ya existe un dispositivo con este token, actualizarlo
+        token = self.request.data.get('token')
+        try:
+            dispositivo = DispositivoUsuario.objects.get(token=token)
+            dispositivo.usuario = self.request.user
+            dispositivo.nombre_dispositivo = self.request.data.get('nombre_dispositivo', dispositivo.nombre_dispositivo)
+            dispositivo.modelo = self.request.data.get('modelo', dispositivo.modelo)
+            dispositivo.sistema_operativo = self.request.data.get('sistema_operativo', dispositivo.sistema_operativo)
+            dispositivo.version_app = self.request.data.get('version_app', dispositivo.version_app)
+            dispositivo.activo = True
+            dispositivo.save()
+        except DispositivoUsuario.DoesNotExist:
+            serializer.save(usuario=self.request.user)
+    
+    @action(detail=False, methods=['post'])
+    def register_token(self, request):
+        """Endpoint simplificado para registrar token FCM"""
+        token = request.data.get('token')
+        if not token:
+            return Response({'error': 'Token es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Actualizar o crear dispositivo
+        dispositivo, created = DispositivoUsuario.objects.update_or_create(
+            token=token,
+            defaults={
+                'usuario': request.user,
+                'nombre_dispositivo': request.data.get('device_name'),
+                'modelo': request.data.get('model'),
+                'sistema_operativo': request.data.get('os'),
+                'version_app': request.data.get('app_version'),
+                'activo': True
+            }
+        )
+        
+        return Response({'status': 'token registered', 'created': created})
+    
+    @action(detail=False, methods=['post'])
+    def test_notification(self, request):
+        """Enviar notificación de prueba al dispositivo actual"""
+        token = request.data.get('token')
+        if not token:
+            return Response({'error': 'Token es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Enviar notificación de prueba
+        success = FirebaseService.send_notification(
+            token=token,
+            title='Notificación de prueba',
+            body='Esta es una notificación de prueba de MediAlert',
+            data={'type': 'test'}
+        )
+        
+        if success:
+            return Response({'status': 'notification sent'})
+        return Response({'error': 'Error al enviar notificación'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class MedicamentoViewSet(viewsets.ModelViewSet):
     serializer_class = MedicamentoSerializer
@@ -91,22 +157,169 @@ class MedicamentoViewSet(viewsets.ModelViewSet):
 class RecordatorioViewSet(viewsets.ModelViewSet):
     serializer_class = RecordatorioSerializer
     permission_classes = [IsAuthenticated]
-
+    
     def get_queryset(self):
         return Recordatorio.objects.filter(usuario=self.request.user)
-
+    
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
+    
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        recordatorio = self.get_object()
+        recordatorio.activo = not recordatorio.activo
+        recordatorio.save()
+        return Response({'status': 'success', 'active': recordatorio.activo})
+    
+    @action(detail=False, methods=['get'])
+    def today(self, request):
+        """Obtener recordatorios para hoy"""
+        today = timezone.now().date()
+        queryset = self.get_queryset().filter(
+            activo=True
+        ).filter(
+            # Sin fecha de fin o con fecha de fin posterior o igual a hoy
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=today)
+        )
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def upcoming(self, request):
+        """Obtener próximos recordatorios (próximas 24 horas)"""
+        now = timezone.now()
+        tomorrow = now + timedelta(days=1)
+        
+        # Obtener recordatorios activos
+        queryset = self.get_queryset().filter(
+            activo=True
+        ).filter(
+            # Sin fecha de fin o con fecha de fin posterior o igual a hoy
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=now.date())
+        )
+        
+        # Filtrar por hora (próximas 24 horas)
+        upcoming_reminders = []
+        for reminder in queryset:
+            # Crear datetime para hoy con la hora del recordatorio
+            reminder_time_today = datetime.combine(now.date(), reminder.hora)
+            reminder_datetime = timezone.make_aware(reminder_time_today)
+            
+            # Si la hora ya pasó hoy, usar mañana
+            if reminder_datetime < now:
+                reminder_time_tomorrow = datetime.combine(tomorrow.date(), reminder.hora)
+                reminder_datetime = timezone.make_aware(reminder_time_tomorrow)
+            
+            # Si está dentro de las próximas 24 horas
+            if reminder_datetime <= tomorrow:
+                upcoming_reminders.append(reminder)
+        
+        serializer = self.get_serializer(upcoming_reminders, many=True)
+        return Response(serializer.data)
 
 class RegistroTomaViewSet(viewsets.ModelViewSet):
     serializer_class = RegistroTomaSerializer
     permission_classes = [IsAuthenticated]
-
+    
     def get_queryset(self):
-        return RegistroToma.objects.filter(medicamento=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save()
+        return RegistroToma.objects.filter(recordatorio__usuario=self.request.user)
+    
+    @action(detail=False, methods=['get'])
+    def by_date_range(self, request):
+        """Obtener registros de toma por rango de fechas"""
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        queryset = self.get_queryset()
+        
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(fecha_programada__date__gte=start_date)
+            except ValueError:
+                return Response(
+                    {'error': 'Formato de fecha inválido. Use YYYY-MM-DD'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(fecha_programada__date__lte=end_date)
+            except ValueError:
+                return Response(
+                    {'error': 'Formato de fecha inválido. Use YYYY-MM-DD'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Obtener estadísticas de tomas"""
+        days = int(request.query_params.get('days', 30))
+        start_date = timezone.now().date() - timedelta(days=days)
+        
+        # Obtener registros en el rango de fechas
+        queryset = self.get_queryset().filter(fecha_programada__date__gte=start_date)
+        
+        # Calcular estadísticas
+        total = queryset.count()
+        tomados = queryset.filter(estado='TOMADO').count()
+        omitidos = queryset.filter(estado='OMITIDO').count()
+        pospuestos = queryset.filter(estado='POSPUESTO').count()
+        
+        adherencia = (tomados / total * 100) if total > 0 else 0
+        
+        return Response({
+            'total': total,
+            'tomados': tomados,
+            'omitidos': omitidos,
+            'pospuestos': pospuestos,
+            'adherencia': round(adherencia, 2)
+        })
+    
+    @action(detail=True, methods=['post'])
+    def tomar(self, request, pk=None):
+        """Marcar un medicamento como tomado"""
+        registro = self.get_object()
+        
+        if registro.estado == 'TOMADO':
+            return Response({'status': 'already taken'})
+        
+        registro.estado = 'TOMADO'
+        registro.fecha_toma = timezone.now()
+        registro.save()
+        
+        return Response({'status': 'success'})
+    
+    @action(detail=True, methods=['post'])
+    def posponer(self, request, pk=None):
+        """Posponer un recordatorio"""
+        registro = self.get_object()
+        minutos = int(request.data.get('minutos', 15))
+        
+        if registro.estado == 'TOMADO':
+            return Response({'status': 'already taken'})
+        
+        # Crear un nuevo registro pospuesto
+        nueva_fecha = registro.fecha_programada + timedelta(minutes=minutos)
+        
+        registro.estado = 'POSPUESTO'
+        registro.save()
+        
+        nuevo_registro = RegistroToma.objects.create(
+            recordatorio=registro.recordatorio,
+            fecha_programada=nueva_fecha
+        )
+        
+        return Response({
+            'status': 'postponed',
+            'new_registro_id': nuevo_registro.id,
+            'new_time': nueva_fecha
+        })
     
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()

@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User, Group
-from .models import UserProfile, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification
+from django.contrib.auth.models import User
+from .models import UserProfile, Medicamento, Recordatorio, \
+    RegistroToma, AdverseEffect, AlertNotification, DispositivoUsuario
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,6 +31,13 @@ class UserSerializer(serializers.ModelSerializer):
             instance.profile.save()
             
         return instance
+    
+class DispositivoUsuarioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DispositivoUsuario
+        fields = ('id', 'token', 'nombre_dispositivo', 'modelo', 'sistema_operativo', 'version_app', 'ultimo_acceso', 'activo')
+        read_only_fields = ('id', 'ultimo_acceso')
+
     
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=True)
@@ -68,18 +76,33 @@ class MedicamentoSerializer(serializers.ModelSerializer):
         fields = ['id', 'nombre', 'dosis', 'frecuencia', 'usuario']
         read_only_fields = ['usuario']
 
-
 class RecordatorioSerializer(serializers.ModelSerializer):
+    medicamento_nombre = serializers.SerializerMethodField()
+    
     class Meta:
         model = Recordatorio
-        fields = ['id', 'medicamento', 'dosis', 'frecuencia', 'hora', 'activo']
-        read_only_fields = ['id']
-
+        fields = '__all__'
+        read_only_fields = ('usuario', 'created_at', 'updated_at')
+    
+    def get_medicamento_nombre(self, obj):
+        return obj.medicamento.nombre if obj.medicamento else None
+    
+    def validate(self, data):
+        # Validar que fecha_fin es posterior a fecha_inicio si existe
+        if 'fecha_fin' in data and data['fecha_fin'] and data['fecha_fin'] < data.get('fecha_inicio', self.instance.fecha_inicio if self.instance else None):
+            raise serializers.ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
+        return data
 
 class RegistroTomaSerializer(serializers.ModelSerializer):
+    medicamento_nombre = serializers.SerializerMethodField()
+    
     class Meta:
         model = RegistroToma
-        fields = ['id', 'medicamento', 'fecha_hora', 'tomado']
+        fields = '__all__'
+        read_only_fields = ('created_at',)
+    
+    def get_medicamento_nombre(self, obj):
+        return obj.recordatorio.medicamento.nombre if obj.recordatorio and obj.recordatorio.medicamento else None
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)

@@ -31,6 +31,22 @@ def save_user_profile(sender, instance, **kwargs):
     """Guardar perfil cuando se guarda el usuario"""
     instance.profile.save()
 
+class DispositivoUsuario(models.Model):
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dispositivos')
+    token = models.CharField(max_length=255, unique=True)
+    nombre_dispositivo = models.CharField(max_length=100, blank=True, null=True)
+    modelo = models.CharField(max_length=100, blank=True, null=True)
+    sistema_operativo = models.CharField(max_length=50, blank=True, null=True)
+    version_app = models.CharField(max_length=20, blank=True, null=True)
+    ultimo_acceso = models.DateTimeField(auto_now=True)
+    activo = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.usuario.username} - {self.nombre_dispositivo or 'Dispositivo'}"
+    
+    class Meta:
+        unique_together = ('usuario', 'token')
+
 class Medicamento(models.Model):
     nombre = models.CharField(max_length=100)
     dosis = models.CharField(max_length=50)
@@ -41,23 +57,58 @@ class Medicamento(models.Model):
         return self.nombre
 
 class Recordatorio(models.Model):
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True)
-    medicamento = models.CharField(max_length=100, null=True, blank=True)
-    dosis = models.CharField(max_length=50, null=True, blank=True)
-    frecuencia = models.CharField(max_length=50, null=True, blank=True)
-    hora = models.TimeField(null=True, blank=True)
+    FREQUENCY_CHOICES = [
+        ('DAILY', 'Diario'),
+        ('WEEKLY', 'Semanal'),
+        ('MONTHLY', 'Mensual'),
+        ('CUSTOM', 'Personalizado')
+    ]
+    
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='recordatorios')
+    medicamento = models.ForeignKey('Medicamento', on_delete=models.CASCADE, related_name='recordatorios')
+    dosis = models.CharField(max_length=50)
+    frecuencia = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, default='DAILY')
+    hora = models.TimeField()
+    dias_semana = models.CharField(max_length=20, blank=True, null=True)  # Formato: "1,2,3,4,5,6,7" para días de la semana
+    fecha_inicio = models.DateField(auto_now_add=True)
+    fecha_fin = models.DateField(blank=True, null=True)
     activo = models.BooleanField(default=True)
-
+    notas = models.TextField(blank=True, null=True)
+    
+    # Campos para notificaciones
+    notificacion_previa = models.IntegerField(default=0)  # Minutos antes para notificar
+    sonido = models.CharField(max_length=50, default='default')
+    vibracion = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
     def __str__(self):
-        return f"{self.medicamento} - {self.hora}"
+        return f"{self.medicamento.nombre} - {self.hora}"
+    
+    class Meta:
+        ordering = ['hora']
 
 class RegistroToma(models.Model):
-    medicamento = models.ForeignKey(Medicamento, on_delete=models.CASCADE)
-    fecha_hora = models.DateTimeField(auto_now_add=True)
-    tomado = models.BooleanField(default=True)
-
+    STATUS_CHOICES = [
+        ('TOMADO', 'Tomado'),
+        ('OMITIDO', 'Omitido'),
+        ('POSPUESTO', 'Pospuesto')
+    ]
+    
+    recordatorio = models.ForeignKey(Recordatorio, on_delete=models.CASCADE, related_name='registros')
+    fecha_programada = models.DateTimeField()
+    fecha_toma = models.DateTimeField(blank=True, null=True)
+    estado = models.CharField(max_length=10, choices=STATUS_CHOICES, default='OMITIDO')
+    notas = models.TextField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
     def __str__(self):
-        return f"Toma de {self.medicamento.nombre} el {self.fecha_hora}"
+        return f"{self.recordatorio} - {self.fecha_programada.strftime('%Y-%m-%d %H:%M')}"
+    
+    class Meta:
+        ordering = ['-fecha_programada']
 
 class AdverseEffect(models.Model):
     SEVERITY_CHOICES = [
