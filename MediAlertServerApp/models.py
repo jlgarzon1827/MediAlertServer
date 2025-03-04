@@ -143,6 +143,8 @@ class AdverseEffect(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=20, default='PENDING')
 
+    reviewer = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_reviews')
+
     class Meta:
         ordering = ['-reported_at']
         permissions = [

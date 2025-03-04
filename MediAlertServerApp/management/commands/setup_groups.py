@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import Group, Permission
+from django.contrib.auth.models import Group, Permission, User
 from django.contrib.contenttypes.models import ContentType
 from MediAlertServerApp.models import AdverseEffect, Medicamento
 
@@ -21,6 +21,15 @@ class Command(BaseCommand):
         adverse_effect_ct = ContentType.objects.get_for_model(AdverseEffect)
         medication_ct = ContentType.objects.get_for_model(Medicamento)
         
+        # Crear permiso personalizado para asignar revisores
+        assign_reviewer_permission, created = Permission.objects.get_or_create(
+            codename='can_assign_reviewers',
+            name='Can assign reviewers to adverse effects',
+            content_type=adverse_effect_ct
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('Permiso "can_assign_reviewers" creado'))
+
         # Permisos para profesionales
         professional_permissions = []
         
@@ -33,7 +42,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f'Permiso {codename} no encontrado'))
         
         # Intentar obtener permisos personalizados
-        for codename in ['view_all_reports', 'manage_reports', 'receive_alerts']:
+        for codename in ['view_all_reports', 'manage_reports', 'receive_alerts', 'can_assign_reviewers']:
             try:
                 perm = Permission.objects.get(codename=codename, content_type=adverse_effect_ct)
                 professional_permissions.append(perm)
@@ -67,3 +76,11 @@ class Command(BaseCommand):
         if patient_permissions:
             patients.permissions.set(patient_permissions)
             self.stdout.write(self.style.SUCCESS(f'Asignados {len(patient_permissions)} permisos a pacientes'))
+
+        # Asignar permiso de asignar revisores al usuario administrador
+        try:
+            admin_user = User.objects.get(username='supervisor')  # Cambiar el nombre de usuario según sea necesario
+            admin_user.user_permissions.add(assign_reviewer_permission)
+            self.stdout.write(self.style.SUCCESS('Permiso "can_assign_reviewers" asignado al usuario administrador'))
+        except User.DoesNotExist:
+            self.stdout.write(self.style.ERROR('Usuario administrador no encontrado'))

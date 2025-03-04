@@ -182,6 +182,11 @@ Endpoints:
      Mark adverse effect as reviewed
      Note: Requires professional access
 
+   - POST /adverse-effects/{id}/assign-reviewer/
+     Assign a reviewer to an adverse effect report.
+     Request Body: { "reviewer_id": number }
+     Response: { "status": "reviewer assigned" }
+
 6. Notifications
    - GET /notifications/
      Retrieve list of notifications for authenticated user

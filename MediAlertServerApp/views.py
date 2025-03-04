@@ -18,7 +18,7 @@ from .serializers import UserSerializer, UserProfileSerializer, DispositivoUsuar
     AdverseEffectSerializer, AlertNotificationSerializer
 from .services import NotificationService, FirebaseService
 from .report_generator import ReportGenerator
-from .permissions import IsProfessional
+from .permissions import IsProfessional, CanAssignReviewers
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -34,9 +34,13 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def me(self, request):
-        """Endpoint para obtener el perfil del usuario actual"""
+        """Endpoint para obtener el perfil del usuario actual y sus permisos"""
         serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
+        permissions = list(request.user.get_all_permissions())
+        data = serializer.data
+        data['permissions'] = permissions
+        return Response(data)
+
     
     @action(detail=False, methods=['put', 'patch'])
     def update_profile(self, request):
@@ -79,6 +83,24 @@ class UserViewSet(viewsets.ModelViewSet):
         }
         
         return Response(user_info)
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def assign_permissions(self, request, pk=None):
+        try:
+            user = User.objects.get(pk=pk)
+            permission_codename = request.data.get('permission_codename')
+            
+            # Assign permission to the user
+            from django.contrib.auth.models import Permission
+            permission = Permission.objects.get(codename=permission_codename)
+            user.user_permissions.add(permission)
+            
+            return Response({'status': f'Permission {permission_codename} assigned to user {user.username}'})
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Permission.DoesNotExist:
+            return Response({'error': 'Permission not found'}, status=status.HTTP_404_NOT_FOUND)
+
     
 class DispositivoUsuarioViewSet(viewsets.ModelViewSet):
     serializer_class = DispositivoUsuarioSerializer
@@ -387,6 +409,24 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         adverse_effect.status = 'REVIEWED'
         adverse_effect.save()
         return Response({'status': 'reviewed'})
+    
+    @action(detail=True, methods=['post'], permission_classes=[CanAssignReviewers])
+    def assign_reviewer(self, request, pk=None):
+        adverse_effect = self.get_object()
+        reviewer_id = request.data.get('reviewer_id')
+        
+        try:
+            reviewer = User.objects.get(pk=reviewer_id)
+            if hasattr(reviewer, 'profile') and reviewer.profile.user_type == 'PROFESSIONAL':
+                adverse_effect.reviewer = reviewer
+                adverse_effect.save()
+                return Response({'status': 'Reviewer assigned successfully'})
+            else:
+                return Response({'error': 'User is not a professional'}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({'error': 'Reviewer not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
 
 class AlertNotificationViewSet(viewsets.ModelViewSet):
     serializer_class = AlertNotificationSerializer
@@ -473,23 +513,23 @@ class DashboardViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def pending_reviews(self, request):
+        user = request.user
+
+        # Filter reports by reviewer if applicable
+        queryset = AdverseEffect.objects.filter(status='PENDING')
+        if hasattr(user, 'profile') and user.profile.user_type == 'PROFESSIONAL':
+            queryset = queryset.filter(reviewer=user)
+
         return Response({
-            'pending': AdverseEffect.objects.filter(
-                status='PENDING'
-            ).count(),
-            
-            'urgent_pending': AdverseEffect.objects.filter(
-                status='PENDING',
-                severity__in=['GRAVE', 'MORTAL']
-            ).count(),
-            
+            'pending': queryset.count(),
+            'urgent_pending': queryset.filter(severity__in=['GRAVE', 'MORTAL']).count(),
             'recent_pending': AdverseEffectSerializer(
-                AdverseEffect.objects.filter(
-                    status='PENDING'
-                ).order_by('-reported_at')[:5],
+                queryset.order_by('-reported_at')[:5],
                 many=True
             ).data
         })
+
+
 
     @action(detail=False, methods=['get'])
     def filtered_reports(self, request):
