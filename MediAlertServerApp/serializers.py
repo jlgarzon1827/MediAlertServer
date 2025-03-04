@@ -103,18 +103,21 @@ class RegistroTomaSerializer(serializers.ModelSerializer):
     
     def get_medicamento_nombre(self, obj):
         return obj.recordatorio.medicamento.nombre if obj.recordatorio and obj.recordatorio.medicamento else None
-
+    
 class AdverseEffectSerializer(serializers.ModelSerializer):
+    medicamento_nombre = serializers.CharField(source='medicamento.nombre', read_only=True)
+
     class Meta:
         model = AdverseEffect
         fields = '__all__'
-        read_only_fields = ('reported_at', 'updated_at', 'status')
+        read_only_fields = ('reported_at', 'updated_at', 'status', 'medicamento_nombre')
 
     def validate(self, data):
         # Validar que end_date es posterior a start_date si existe
         if 'end_date' in data and data['end_date'] < data['start_date']:
             raise serializers.ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
         return data
+
 
 class AlertNotificationSerializer(serializers.ModelSerializer):
     class Meta:

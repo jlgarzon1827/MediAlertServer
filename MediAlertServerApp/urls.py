@@ -18,6 +18,7 @@ router.register(r'dispositivos', DispositivoUsuarioViewSet, basename='dispositiv
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('adverse-effects/<int:pk>/mark-as-reviewed/', views.AdverseEffectViewSet.as_view({'post': 'mark_as_reviewed'}), name='adverse-effect-mark-as-reviewed'),
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', RegisterView.as_view(), name='auth_register'),
