@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework.permissions import BasePermission, IsAuthenticated, DjangoModelPermissions
 from rest_framework.decorators import permission_classes, action
+from rest_framework.pagination import PageNumberPagination
 from django.db.models import Count, F, Q
 from django.db.models import Count, Avg, Max, Min
 from django.db.models.functions import TruncMonth, TruncWeek
@@ -426,6 +427,39 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({'error': 'Reviewer not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    @action(detail=False, methods=['get'])
+    def filtered_reports(self, request):
+        queryset = AdverseEffect.objects.all()
+        
+        filters = {}
+        
+        severity = request.query_params.get('severity')
+        if severity:
+            filters['severity'] = severity
+            
+        medication = request.query_params.get('medication')
+        if medication:
+            filters['medication__nombre__icontains'] = medication
+            
+        date_from = request.query_params.get('from')
+        date_to = request.query_params.get('to')
+        if date_from or date_to:
+            date_filter = Q()
+            if date_from:
+                date_filter &= Q(reported_at__gte=date_from)
+            if date_to:
+                date_filter &= Q(reported_at__lte=date_to)
+            queryset = queryset.filter(date_filter)
+
+        queryset = queryset.filter(**filters).order_by('-reported_at')
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+        result_page = paginator.paginate_queryset(queryset, request)
+
+        serializer = AdverseEffectSerializer(result_page, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
 
 
 class AlertNotificationViewSet(viewsets.ModelViewSet):
@@ -525,36 +559,6 @@ class DashboardViewSet(viewsets.ViewSet):
             'urgent_pending': queryset.filter(severity__in=['GRAVE', 'MORTAL']).count(),
             'recent_pending': AdverseEffectSerializer(
                 queryset.order_by('-reported_at')[:5],
-                many=True
-            ).data
-        })
-
-
-
-    @action(detail=False, methods=['get'])
-    def filtered_reports(self, request):
-        queryset = AdverseEffect.objects.all()
-        
-        severity = request.query_params.get('severity')
-        if severity:
-            queryset = queryset.filter(severity=severity)
-            
-        medication = request.query_params.get('medication')
-        if medication:
-            queryset = queryset.filter(medication__nombre__icontains=medication)
-            
-        date_from = request.query_params.get('from')
-        if date_from:
-            queryset = queryset.filter(reported_at__gte=date_from)
-            
-        date_to = request.query_params.get('to')
-        if date_to:
-            queryset = queryset.filter(reported_at__lte=date_to)
-
-        return Response({
-            'count': queryset.count(),
-            'results': AdverseEffectSerializer(
-                queryset.order_by('-reported_at')[:20],
                 many=True
             ).data
         })
