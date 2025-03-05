@@ -38,12 +38,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_crontab',
     'rest_framework',
     'rest_framework_simplejwt',
+    'corsheaders',
     'MediAlertServerApp',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -115,11 +118,29 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
+CRONJOBS = [
+    # Generar registros de toma cada día a las 00:01
+    ('1 0 * * *', 'django.core.management.call_command', ['generate_registros', '--days=7']),
+    
+    # Enviar recordatorios cada 5 minutos
+    ('*/5 * * * *', 'django.core.management.call_command', ['send_reminders']),
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
