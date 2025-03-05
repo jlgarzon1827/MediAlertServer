@@ -485,6 +485,9 @@ class AlertNotificationViewSet(viewsets.ModelViewSet):
 class DashboardViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsProfessional]
 
+    def get_queryset(self):
+        return AdverseEffect.objects.all()
+
     def get_permissions(self):
         """
         Verificar permisos específicos para cada endpoint
