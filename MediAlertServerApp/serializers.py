@@ -105,7 +105,7 @@ class RegistroTomaSerializer(serializers.ModelSerializer):
         return obj.recordatorio.medicamento.nombre if obj.recordatorio and obj.recordatorio.medicamento else None
     
 class AdverseEffectSerializer(serializers.ModelSerializer):
-    medicamento_nombre = serializers.CharField(source='medicamento.nombre', read_only=True)
+    medicamento_nombre = serializers.CharField(source='medication.nombre', read_only=True)
 
     class Meta:
         model = AdverseEffect

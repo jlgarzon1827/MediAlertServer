@@ -123,6 +123,11 @@ class AdverseEffect(models.Model):
         ('B', 'Tipo B - Bizarro/No predecible')
     ]
 
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('REVIEWED', 'Reviewed')
+    ]
+
     patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='adverse_effects')
     medication = models.ForeignKey('Medicamento', on_delete=models.CASCADE)
     
@@ -141,7 +146,7 @@ class AdverseEffect(models.Model):
     # Metadatos
     reported_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    status = models.CharField(max_length=20, default='PENDING')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
 
     reviewer = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_reviews')
 

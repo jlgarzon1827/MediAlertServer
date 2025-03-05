@@ -440,6 +440,10 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         medication = request.query_params.get('medication')
         if medication:
             filters['medication__nombre__icontains'] = medication
+
+        status = request.query_params.get('status')
+        if status:
+            filters['status__iexact'] = status
             
         date_from = request.query_params.get('from')
         date_to = request.query_params.get('to')
