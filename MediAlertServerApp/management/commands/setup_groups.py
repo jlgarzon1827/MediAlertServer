@@ -7,6 +7,16 @@ class Command(BaseCommand):
     help = 'Configura los grupos y permisos iniciales'
 
     def handle(self, *args, **options):
+        # Crear grupo para admins
+        admins, created = Group.objects.get_or_create(name='Admins')
+        if created:
+            self.stdout.write(self.style.SUCCESS('Grupo "Admins" creado'))
+
+        # Crear grupo para supervisores
+        supervisors, created = Group.objects.get_or_create(name='Supervisors')
+        if created:
+            self.stdout.write(self.style.SUCCESS('Grupo "Supervisors" creado'))
+
         # Crear grupo para profesionales de la salud
         health_professionals, created = Group.objects.get_or_create(name='HealthProfessionals')
         if created:
@@ -30,7 +40,10 @@ class Command(BaseCommand):
         if created:
             self.stdout.write(self.style.SUCCESS('Permiso "can_assign_reviewers" creado'))
 
+
         # Permisos para profesionales
+        admin_permissions = []
+        supervisor_permissions = []
         professional_permissions = []
         
         # Intentar obtener permisos para AdverseEffect
@@ -40,11 +53,13 @@ class Command(BaseCommand):
                 professional_permissions.append(perm)
             except Permission.DoesNotExist:
                 self.stdout.write(self.style.WARNING(f'Permiso {codename} no encontrado'))
-        
+
         # Intentar obtener permisos personalizados
         for codename in ['view_all_reports', 'manage_reports', 'receive_alerts', 'can_assign_reviewers']:
             try:
                 perm = Permission.objects.get(codename=codename, content_type=adverse_effect_ct)
+                admin_permissions.append(perm)
+                supervisor_permissions.append(perm)
                 professional_permissions.append(perm)
             except Permission.DoesNotExist:
                 self.stdout.write(self.style.WARNING(f'Permiso personalizado {codename} no encontrado'))
@@ -77,10 +92,29 @@ class Command(BaseCommand):
             patients.permissions.set(patient_permissions)
             self.stdout.write(self.style.SUCCESS(f'Asignados {len(patient_permissions)} permisos a pacientes'))
 
-        # Asignar permiso de asignar revisores al usuario administrador
+        # Asignar permisos a grupos
+        if admin_permissions:
+            admins.permissions.set(admin_permissions)
+            self.stdout.write(self.style.SUCCESS(f'Asignados {len(admin_permissions)} permisos a admins'))
+            
+        if supervisor_permissions:
+            supervisors.permissions.set(supervisor_permissions)
+            self.stdout.write(self.style.SUCCESS(f'Asignados {len(supervisor_permissions)} permisos a supervisores'))
+
+        # Asignar al usuario jesyl como administrador
         try:
-            admin_user = User.objects.get(username='supervisor')  # Cambiar el nombre de usuario según sea necesario
-            admin_user.user_permissions.add(assign_reviewer_permission)
-            self.stdout.write(self.style.SUCCESS('Permiso "can_assign_reviewers" asignado al usuario administrador'))
+            admin_user = User.objects.get(username='jesyl')  # Cambiar el nombre de usuario si es necesario
+            admin_user.profile.user_type = 'ADMIN'
+            admin_user.profile.save()
+            
+            # Añadir al grupo de administradores
+            admins.user_set.add(admin_user)
+
+            # Asignar todos los permisos del grupo Admins directamente al usuario
+            for perm in admin_permissions:
+                admin_user.user_permissions.add(perm)
+
+            self.stdout.write(self.style.SUCCESS('Usuario "jesyl" configurado como administrador con todos los permisos.'))
+        
         except User.DoesNotExist:
-            self.stdout.write(self.style.ERROR('Usuario administrador no encontrado'))
+            self.stdout.write(self.style.ERROR('Usuario "jesyl" no encontrado. Por favor, crea el usuario antes de ejecutar este script.'))

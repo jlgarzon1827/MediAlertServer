@@ -15,6 +15,11 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile']
         read_only_fields = ['id']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['user_type'] = instance.profile.user_type
+        return data
         
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
@@ -31,6 +36,26 @@ class UserSerializer(serializers.ModelSerializer):
             instance.profile.save()
             
         return instance
+    
+class CombinedProfileSerializer(serializers.ModelSerializer):
+    profile = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile']
+
+    def get_profile(self, obj):
+        try:
+            profile = UserProfile.objects.get(user=obj)
+            return {
+                'user_type': profile.user_type,
+                'professional_id': profile.professional_id,
+                'specialty': profile.specialty,
+                'institution': profile.institution,
+                'phone': profile.phone,
+            }
+        except UserProfile.DoesNotExist:
+            return None
     
 class DispositivoUsuarioSerializer(serializers.ModelSerializer):
     class Meta:

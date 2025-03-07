@@ -7,7 +7,9 @@ from django.dispatch import receiver
 class UserProfile(models.Model):
     USER_TYPES = [
         ('PATIENT', 'Paciente'),
-        ('PROFESSIONAL', 'Profesional de la salud')
+        ('PROFESSIONAL', 'Profesional de la salud'),
+        ('ADMIN', 'Admin'),
+        ('SUPERVISOR', 'Supervisor')
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -124,8 +126,13 @@ class AdverseEffect(models.Model):
     ]
 
     STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
-        ('REVIEWED', 'Reviewed')
+        ('CREATED', 'Created'),
+        ('ASSIGNED', 'Assigned'),
+        ('IN_REVISION', 'En Revisión'),
+        ('PENDING_INFORMATION', 'Pending information'),
+        ('REJECTED', 'Rejected'),
+        ('RECLAIMED', 'Reclaimed'),
+        ('APPROVED', 'Approved')
     ]
 
     patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='adverse_effects')
@@ -146,7 +153,7 @@ class AdverseEffect(models.Model):
     # Metadatos
     reported_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='CREATED')
 
     reviewer = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_reviews')
 

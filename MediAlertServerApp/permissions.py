@@ -1,5 +1,17 @@
 from rest_framework import permissions
 
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return (request.user.is_authenticated and 
+                hasattr(request.user, 'profile') and 
+                request.user.profile.user_type == 'ADMIN')
+
+class IsSupervisor(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return (request.user.is_authenticated and 
+                hasattr(request.user, 'profile') and 
+                request.user.profile.user_type == 'SUPERVISOR')
+
 class IsProfessional(permissions.BasePermission):
     """
     Permite acceso solo a usuarios profesionales.
@@ -8,7 +20,12 @@ class IsProfessional(permissions.BasePermission):
         return (request.user.is_authenticated and 
                 hasattr(request.user, 'profile') and 
                 request.user.profile.user_type == 'PROFESSIONAL')
-    
-class CanAssignReviewers(permissions.BasePermission):
+
+class IsProfessionalOrSupervisorOrAdmin(permissions.BasePermission):
+    """
+    Permite acceso a profesionales, supervisores o administradores.
+    """
     def has_permission(self, request, view):
-        return request.user.has_perm('can_assign_reviewers')
+        user_type = getattr(request.user.profile, 'user_type', None)
+        return user_type in ['PROFESSIONAL', 'SUPERVISOR', 'ADMIN']
+
