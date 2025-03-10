@@ -159,6 +159,7 @@ class AdverseEffect(models.Model):
 
     additional_info = models.TextField(null=True, blank=True)
     reclamation_reason = models.TextField(null=True, blank=True)
+    revertion_reason = models.TextField(null=True, blank=True)
 
     class Meta:
         ordering = ['-reported_at']

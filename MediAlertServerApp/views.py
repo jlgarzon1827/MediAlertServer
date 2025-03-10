@@ -473,9 +473,15 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         if adverse_effect.status != 'APPROVED':
             return Response({'error': 'No se puede revertir en este estado'}, status=status.HTTP_400_BAD_REQUEST)
 
+        revertion_reason = request.data.get('reason')
+        if not reason:
+            return Response({'error': 'Debe proporcionar un motivo para la reversión'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        adverse_effect.revertion_reason = revertion_reason
         adverse_effect.status = 'IN_REVISION'
         adverse_effect.save()
-        return Response({'status': 'Status reverted'})
+        
+        return Response({'status': 'Estado revertido', 'reason': reason})
 
     @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
     def approve_reclamation(self, request, pk=None):
@@ -555,7 +561,6 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         if adverse_effect.patient != request.user:
             return Response({'error': 'Solo el paciente puede iniciar la reclamación'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Procesar el motivo de la reclamación
         reclamation_reason = request.data.get('reclamation_reason')
         if not reclamation_reason:
             return Response({'error': 'El motivo de la reclamación es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
