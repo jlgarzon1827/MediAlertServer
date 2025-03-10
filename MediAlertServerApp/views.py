@@ -19,7 +19,7 @@ from .serializers import UserSerializer, CombinedProfileSerializer, DispositivoU
     AdverseEffectSerializer, AlertNotificationSerializer
 from .services import FirebaseService
 from .report_generator import ReportGenerator
-from .permissions import IsProfessional, IsAdmin, IsSupervisor, IsProfessionalOrSupervisorOrAdmin
+from .permissions import IsProfessional, IsAdmin, IsSupervisor, IsPatient, IsProfessionalOrSupervisorOrAdmin
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -449,13 +449,6 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         return AdverseEffect.objects.filter(patient=self.request.user)
 
     @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
-    def revert_status(self, request, pk=None):
-        adverse_effect = self.get_object()
-        adverse_effect.status = 'EN_REVISION'
-        adverse_effect.save()
-        return Response({'status': 'Status reverted'})
-
-    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
     def assign_reviewer(self, request, pk=None):
         adverse_effect = self.get_object()
         reviewer_id = request.data.get('reviewer_id')
@@ -464,7 +457,7 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
             reviewer = User.objects.get(pk=reviewer_id)
             if reviewer.profile.user_type == 'PROFESSIONAL':
                 adverse_effect.reviewer = reviewer
-                adverse_effect.status = 'IN_REVISION'
+                adverse_effect.status = 'ASSIGNED'
                 adverse_effect.save()
                 return Response({'status': 'Reviewer assigned successfully'})
             else:
@@ -472,17 +465,59 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({'error': 'Reviewer not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    #Supervisor transitions
     @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
-    def review_reclamation(self, request, pk=None):
+    def revert_status(self, request, pk=None):
         adverse_effect = self.get_object()
-        adverse_effect.status = 'RECLAIMED'
-        adverse_effect.save()
-        return Response({'status': 'Reclamation under review'})
 
+        if adverse_effect.status != 'APPROVED':
+            return Response({'error': 'No se puede revertir en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.status = 'IN_REVISION'
+        adverse_effect.save()
+        return Response({'status': 'Status reverted'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
+    def approve_reclamation(self, request, pk=None):
+        adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'RECLAIMED':
+            return Response({'error': 'No se puede aprovar una reclamación en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.status = 'APPROVED'
+        adverse_effect.save()
+        return Response({'status': 'Reclamation accepted'})
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
+    def reject_reclamation(self, request, pk=None):
+        adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'RECLAIMED':
+            return Response({'error': 'No se puede rechazar la reclamación en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.status = 'REJECTED'
+        adverse_effect.save()
+        return Response({'status': 'Reclamation rejected'})
+
+    #Professional transitions
+    @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
+    def start_review(self, request, pk=None):
+        adverse_effect = self.get_object()
+        
+        if adverse_effect.status != 'ASSIGNED':
+            return Response({'error': 'No se puede iniciar la revisión en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        adverse_effect.status = 'IN_REVISION'
+        adverse_effect.save()
+        return Response({'status': 'Revision initiated'})
 
     @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
     def request_additional_info(self, request, pk=None):
         adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'IN_REVISION':
+            return Response({'error': 'No se puede solicitar información adicional en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
         adverse_effect.status = 'PENDING_INFORMATION'
         adverse_effect.save()
         return Response({'status': 'Additional info requested'})
@@ -490,6 +525,10 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
     def approve_report(self, request, pk=None):
         adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'IN_REVISION':
+            return Response({'error': 'No se puede aprobar un reporte en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
         adverse_effect.status = 'APPROVED'
         adverse_effect.save()
         return Response({'status': 'Report approved'})
@@ -497,23 +536,69 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
     def reject_report(self, request, pk=None):
         adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'IN_REVISION':
+            return Response({'error': 'No se puede rechazar un reporte en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
         adverse_effect.status = 'REJECTED'
         adverse_effect.save()
         return Response({'status': 'Report rejected'})
 
-    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
-    def review_reclamation(self, request, pk=None):
+    #Patient transitions
+    @action(detail=True, methods=['post'], permission_classes=[IsPatient])
+    def start_reclamation(self, request, pk=None):
         adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'REJECTED':
+            return Response({'error': 'No se puede iniciar la reclamación en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if adverse_effect.patient != request.user:
+            return Response({'error': 'Solo el paciente puede iniciar la reclamación'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Procesar el motivo de la reclamación
+        reclamation_reason = request.data.get('reclamation_reason')
+        if not reclamation_reason:
+            return Response({'error': 'El motivo de la reclamación es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.reclamation_reason = reclamation_reason
         adverse_effect.status = 'RECLAIMED'
         adverse_effect.save()
-        return Response({'status': 'Reclamation under review'})
 
-    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
-    def revert_status(self, request, pk=None):
+        return Response({'status': 'Reclamación iniciada', 'reclamation_reason': reclamation_reason})
+
+
+    @action(detail=True, methods=['post'], permission_classes=[IsPatient])
+    def provide_additional_info(self, request, pk=None):
         adverse_effect = self.get_object()
+        
+        if adverse_effect.status != 'PENDING_INFORMATION':
+            return Response({'error': 'No se puede proporcionar información adicional en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if adverse_effect.patient != request.user:
+            return Response({'error': 'Solo el paciente puede proporcionar información adicional'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Procesar la información adicional aquí
+        additional_info = request.data.get('additional_info')
+        
+        # Guardar la información adicional en la base de datos
+        adverse_effect.additional_info = additional_info
         adverse_effect.status = 'IN_REVISION'
         adverse_effect.save()
-        return Response({'status': 'Status reverted'})
+        
+        return Response({'status': 'Información adicional proporcionada'})
+
+    # TODO jlgarzon: action for testing purposes
+    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
+    def update_status(self, request, pk=None):
+        adverse_effect = self.get_object()
+        new_status = request.data.get('status')
+        
+        if new_status in ['CREATED', 'ASSIGNED', 'IN_REVISION', 'PENDING_INFORMATION', 'REJECTED', 'RECLAIMED', 'APPROVED']:
+            adverse_effect.status = new_status
+            adverse_effect.save()
+            return Response({'status': f'Estado actualizado a {new_status}'})
+        else:
+            return Response({'error': 'Estado no válido'}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get'])
     def filtered_reports(self, request):

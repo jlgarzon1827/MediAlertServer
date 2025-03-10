@@ -131,6 +131,8 @@ class RegistroTomaSerializer(serializers.ModelSerializer):
     
 class AdverseEffectSerializer(serializers.ModelSerializer):
     medicamento_nombre = serializers.CharField(source='medication.nombre', read_only=True)
+    additional_info = serializers.CharField(required=False, allow_null=True)
+    reclamation_reason = serializers.CharField(required=False, allow_null=True)
 
     class Meta:
         model = AdverseEffect

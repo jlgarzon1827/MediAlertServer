@@ -20,6 +20,15 @@ class IsProfessional(permissions.BasePermission):
         return (request.user.is_authenticated and 
                 hasattr(request.user, 'profile') and 
                 request.user.profile.user_type == 'PROFESSIONAL')
+    
+class IsPatient(permissions.BasePermission):
+    """
+    Permite acceso solo a usuarios pacientes.
+    """
+    def has_permission(self, request, view):
+        return (request.user.is_authenticated and 
+                hasattr(request.user, 'profile') and 
+                request.user.profile.user_type == 'PATIENT')
 
 class IsProfessionalOrSupervisorOrAdmin(permissions.BasePermission):
     """

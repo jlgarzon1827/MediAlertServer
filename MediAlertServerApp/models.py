@@ -157,6 +157,9 @@ class AdverseEffect(models.Model):
 
     reviewer = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_reviews')
 
+    additional_info = models.TextField(null=True, blank=True)
+    reclamation_reason = models.TextField(null=True, blank=True)
+
     class Meta:
         ordering = ['-reported_at']
         permissions = [
