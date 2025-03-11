@@ -474,14 +474,14 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
             return Response({'error': 'No se puede revertir en este estado'}, status=status.HTTP_400_BAD_REQUEST)
 
         revertion_reason = request.data.get('reason')
-        if not reason:
+        if not revertion_reason:
             return Response({'error': 'Debe proporcionar un motivo para la reversión'}, status=status.HTTP_400_BAD_REQUEST)
         
         adverse_effect.revertion_reason = revertion_reason
         adverse_effect.status = 'IN_REVISION'
         adverse_effect.save()
         
-        return Response({'status': 'Estado revertido', 'reason': reason})
+        return Response({'status': 'Estado revertido', 'reason': revertion_reason})
 
     @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
     def approve_reclamation(self, request, pk=None):
@@ -622,6 +622,10 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         status = request.query_params.get('status')
         if status:
             filters['status__iexact'] = status
+
+        type_param = request.query_params.get('type')
+        if type_param:
+            filters['type'] = type_param
         
         date_from = request.query_params.get('from')
         date_to = request.query_params.get('to')
@@ -703,6 +707,17 @@ class DashboardViewSet(viewsets.ViewSet):
         status = request.query_params.get('status')
         if status:
             filters['status__iexact'] = status
+
+        reviewer = request.query_params.get('reviewer')
+        if reviewer:
+            if reviewer.lower() == 'null':
+                filters['reviewer__isnull'] = True
+            else:
+                filters['reviewer'] = reviewer
+
+        type_param = request.query_params.get('type')
+        if type_param:
+            filters['type'] = type_param
 
         date_from = request.query_params.get('from')
         date_to = request.query_params.get('to')

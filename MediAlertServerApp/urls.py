@@ -18,7 +18,6 @@ router.register(r'dispositivos', DispositivoUsuarioViewSet, basename='dispositiv
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('adverse-effects/<int:pk>/mark-as-reviewed/', views.AdverseEffectViewSet.as_view({'post': 'mark_as_reviewed'}), name='adverse-effect-mark-as-reviewed'),
     path('adverse-effects/<int:pk>/assign-reviewer/', views.AdverseEffectViewSet.as_view({'post': 'assign_reviewer'}), name='adverse-effect-assign-reviewer'),
     path('adverse-effects/<int:pk>/update-status/', views.AdverseEffectViewSet.as_view({'post': 'update_status'}), name='adverse-effect-update-status'),
     path('adverse-effects/<int:pk>/provide-additional-info/', views.AdverseEffectViewSet.as_view({'post': 'provide_additional_info'}), name='adverse-effect-provide-additional-info'),
