@@ -1,0 +1,602 @@
+[
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Aspirina",
+            "dosis": "500 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Ácido acetilsalicílico",
+            "concentracion": "500 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Ibuprofeno Cinfa",
+            "dosis": "600 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Ibuprofeno",
+            "concentracion": "600 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Paracetamol Stada",
+            "dosis": "1 g",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Paracetamol",
+            "concentracion": "1 g",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Omeprazol Normon",
+            "dosis": "20 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Omeprazol",
+            "concentracion": "20 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Amoxicilina Ardine",
+            "dosis": "500 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Amoxicilina",
+            "concentracion": "500 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Ventolin",
+            "dosis": "100 mcg/dosis",
+            "forma_farmaceutica": "Inhalador",
+            "principio_activo": "Salbutamol",
+            "concentracion": "100 mcg/dosis",
+            "via_administracion": "Inhalatoria",
+            "frecuencia": "PRN"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Diazepam Prodes",
+            "dosis": "5 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Diazepam",
+            "concentracion": "5 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Eutirox",
+            "dosis": "50 mcg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Levotiroxina sódica",
+            "concentracion": "50 mcg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Sintrom",
+            "dosis": "4 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Acenocumarol",
+            "concentracion": "4 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Nolotil",
+            "dosis": "575 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Metamizol magnésico",
+            "concentracion": "575 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Atorvastatina Cinfa",
+            "dosis": "20 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Atorvastatina",
+            "concentracion": "20 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Metformina Kern",
+            "dosis": "850 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Metformina",
+            "concentracion": "850 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Lorazepam Normon",
+            "dosis": "1 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Lorazepam",
+            "concentracion": "1 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Enalapril Cinfa",
+            "dosis": "20 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Enalapril",
+            "concentracion": "20 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Augmentine",
+            "dosis": "875/125 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Amoxicilina/Ácido clavulánico",
+            "concentracion": "875/125 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Lexatin",
+            "dosis": "1.5 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Bromazepam",
+            "concentracion": "1.5 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Seretide",
+            "dosis": "25/250 mcg",
+            "forma_farmaceutica": "Inhalador",
+            "principio_activo": "Salmeterol/Fluticasona",
+            "concentracion": "25/250 mcg",
+            "via_administracion": "Inhalatoria",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Escitalopram Cinfa",
+            "dosis": "10 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Escitalopram",
+            "concentracion": "10 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Simvastatina Stada",
+            "dosis": "20 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Simvastatina",
+            "concentracion": "20 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Tramadol Normon",
+            "dosis": "50 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Tramadol",
+            "concentracion": "50 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Losartan Cinfa",
+            "dosis": "50 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Losartán",
+            "concentracion": "50 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Amlodipino Normon",
+            "dosis": "5 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Amlodipino",
+            "concentracion": "5 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Fluoxetina Cinfa",
+            "dosis": "20 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Fluoxetina",
+            "concentracion": "20 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Ramipril Stada",
+            "dosis": "5 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Ramipril",
+            "concentracion": "5 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Bisoprolol Normon",
+            "dosis": "2.5 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Bisoprolol",
+            "concentracion": "2.5 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Levonorgestrel Stada",
+            "dosis": "1.5 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Levonorgestrel",
+            "concentracion": "1.5 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Metoclopramida Kern",
+            "dosis": "10 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Metoclopramida",
+            "concentracion": "10 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Prednisona Alonga",
+            "dosis": "5 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Prednisona",
+            "concentracion": "5 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Furosemida Cinfa",
+            "dosis": "40 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Furosemida",
+            "concentracion": "40 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Metamizol Cinfa",
+            "dosis": "575 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Metamizol",
+            "concentracion": "575 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Pantoprazol Normon",
+            "dosis": "40 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Pantoprazol",
+            "concentracion": "40 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Pregabalina Cinfa",
+            "dosis": "75 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Pregabalina",
+            "concentracion": "75 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Clopidogrel Pensa",
+            "dosis": "75 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Clopidogrel",
+            "concentracion": "75 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Duloxetina Stada",
+            "dosis": "30 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Duloxetina",
+            "concentracion": "30 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Tamsulosina Cinfa",
+            "dosis": "0.4 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Tamsulosina",
+            "concentracion": "0.4 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Valsartán Kern",
+            "dosis": "160 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Valsartán",
+            "concentracion": "160 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Metronidazol Normon",
+            "dosis": "250 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Metronidazol",
+            "concentracion": "250 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Gabapentina Cinfa",
+            "dosis": "300 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Gabapentina",
+            "concentracion": "300 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Levetiracetam Stada",
+            "dosis": "500 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Levetiracetam",
+            "concentracion": "500 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Mirtazapina Normon",
+            "dosis": "15 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Mirtazapina",
+            "concentracion": "15 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Risperidona Cinfa",
+            "dosis": "1 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Risperidona",
+            "concentracion": "1 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Sertralina Kern",
+            "dosis": "50 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Sertralina",
+            "concentracion": "50 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Torasemida Cinfa",
+            "dosis": "5 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Torasemida",
+            "concentracion": "5 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Venlafaxina Normon",
+            "dosis": "75 mg",
+            "forma_farmaceutica": "Cápsula",
+            "principio_activo": "Venlafaxina",
+            "concentracion": "75 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Zolpidem Stada",
+            "dosis": "10 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Zolpidem",
+            "concentracion": "10 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "PRN"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Aciclovir Cinfa",
+            "dosis": "800 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Aciclovir",
+            "concentracion": "800 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Betahistina Normon",
+            "dosis": "8 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Betahistina",
+            "concentracion": "8 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "TID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Ciprofloxacino Stada",
+            "dosis": "500 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Ciprofloxacino",
+            "concentracion": "500 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "BID"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Doxazosina Cinfa",
+            "dosis": "4 mg",
+            "forma_farmaceutica": "Comprimido",
+            "principio_activo": "Doxazosina",
+            "concentracion": "4 mg",
+            "via_administracion": "Oral",
+            "frecuencia": "OD"
+        }
+    },
+    {
+        "model": "MediAlertServerApp.medicamentomaestro",
+        "fields": {
+            "nombre": "Escopolamina Kern",
+            "dosis": "1.5 mg",
+            "forma_farmaceutica": "Parche",
+            "principio_activo": "Escopolamina",
+            "concentracion": "1.5 mg",
+            "via_administracion": "Transdérmica",
+            "frecuencia": "PRN"
+        }
+    }
+]

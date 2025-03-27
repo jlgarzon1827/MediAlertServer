@@ -13,13 +13,13 @@ from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 from django.http import HttpResponse
-from .models import DispositivoUsuario, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification
+from .models import DispositivoUsuario, MedicamentoMaestro, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification
 from .serializers import UserSerializer, CombinedProfileSerializer, DispositivoUsuarioSerializer, \
-    RegisterSerializer, MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, \
+    RegisterSerializer, MedicamentoMaestroSerializer, MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, \
     AdverseEffectSerializer, AlertNotificationSerializer
 from .services import FirebaseService
 from .report_generator import ReportGenerator
-from .permissions import IsProfessional, IsAdmin, IsSupervisor, IsPatient, IsProfessionalOrSupervisorOrAdmin
+from .permissions import IsProfessional, IsAdmin, IsSupervisor, IsSupervisorOrReadOnly, IsPatient, IsProfessionalOrSupervisorOrAdmin
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -212,6 +212,10 @@ class DispositivoUsuarioViewSet(viewsets.ModelViewSet):
             return Response({'status': 'notification sent'})
         return Response({'error': 'Error al enviar notificación'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class MedicamentoMaestroViewSet(viewsets.ModelViewSet):
+    serializer_class = MedicamentoMaestroSerializer
+    permission_classes = [IsSupervisorOrReadOnly]
+    queryset = MedicamentoMaestro.objects.all()
 
 class MedicamentoViewSet(viewsets.ModelViewSet):
     serializer_class = MedicamentoSerializer

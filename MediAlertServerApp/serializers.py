@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, Medicamento, Recordatorio, \
+from .models import UserProfile, MedicamentoMaestro, Medicamento, Recordatorio, \
     RegistroToma, AdverseEffect, AlertNotification, DispositivoUsuario
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -95,10 +95,22 @@ class RegisterSerializer(serializers.ModelSerializer):
         
         return user
 
+class MedicamentoMaestroSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicamentoMaestro
+        fields = ['id', 'nombre', 'dosis', 'forma_farmaceutica', 'principio_activo', 'concentracion', 'via_administracion', 'frecuencia']
+
 class MedicamentoSerializer(serializers.ModelSerializer):
+    medicamento_maestro_id = serializers.PrimaryKeyRelatedField(
+        source='medicamento_maestro',
+        queryset=MedicamentoMaestro.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
     class Meta:
         model = Medicamento
-        fields = ['id', 'nombre', 'dosis', 'frecuencia', 'usuario']
+        fields = ['id', 'medicamento_maestro_id', 'dosis_personalizada', 'frecuencia_personalizada', 'usuario']
         read_only_fields = ['usuario']
 
 class RecordatorioSerializer(serializers.ModelSerializer):
@@ -110,7 +122,7 @@ class RecordatorioSerializer(serializers.ModelSerializer):
         read_only_fields = ('usuario', 'created_at', 'updated_at')
     
     def get_medicamento_nombre(self, obj):
-        return obj.medicamento.nombre if obj.medicamento else None
+        return obj.medicamento.medicamento_maestro.nombre if obj.medicamento else None
     
     def validate(self, data):
         # Validar que fecha_fin es posterior a fecha_inicio si existe
@@ -127,7 +139,7 @@ class RegistroTomaSerializer(serializers.ModelSerializer):
         read_only_fields = ('created_at',)
     
     def get_medicamento_nombre(self, obj):
-        return obj.recordatorio.medicamento.nombre if obj.recordatorio and obj.recordatorio.medicamento else None
+        return obj.recordatorio.medicamento.medicamento_maestro.nombre if obj.recordatorio and obj.medicamento.medicamento_maestro.nombre else None
     
 class AdverseEffectSerializer(serializers.ModelSerializer):
     medicamento_nombre = serializers.CharField(source='medication.nombre', read_only=True)

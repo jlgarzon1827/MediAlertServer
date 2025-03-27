@@ -85,7 +85,7 @@ class NotificationService:
             AlertNotification.objects.create(
                 adverse_effect=adverse_effect,
                 recipient=professional,
-                title=f'Nuevo reporte de efecto adverso - {adverse_effect.medication.nombre}',
+                title=f'Nuevo reporte de efecto adverso - {adverse_effect.medication.medicamento_maestro.nombre}',
                 message=f'Se ha reportado un efecto adverso {adverse_effect.severity.lower()} para el medicamento {adverse_effect.medication.nombre}',
                 priority=priority
             )
@@ -219,13 +219,13 @@ class ReminderNotificationService:
             
             # Preparar datos para la notificación
             medicamento = registro.recordatorio.medicamento
-            title = f"Recordatorio: {medicamento.nombre}"
-            body = f"Es hora de tomar {registro.recordatorio.dosis} de {medicamento.nombre}"
+            title = f"Recordatorio: {medicamento.medicamento_maestro.nombre}"
+            body = f"Es hora de tomar {registro.recordatorio.dosis} de {medicamento.medicamento_maestro.nombre}"
             data = {
                 'type': 'medication_reminder',
                 'registro_id': str(registro.id),
                 'medicamento_id': str(medicamento.id),
-                'medicamento_nombre': medicamento.nombre,
+                'medicamento_nombre': medicamento.medicamento_maestro.nombre,
                 'dosis': registro.recordatorio.dosis
             }
             

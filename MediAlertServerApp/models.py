@@ -49,14 +49,26 @@ class DispositivoUsuario(models.Model):
     class Meta:
         unique_together = ('usuario', 'token')
 
-class Medicamento(models.Model):
+class MedicamentoMaestro(models.Model):
     nombre = models.CharField(max_length=100)
     dosis = models.CharField(max_length=50)
-    frecuencia = models.CharField(max_length=50)
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    forma_farmaceutica = models.CharField(max_length=50, blank=True)
+    principio_activo = models.CharField(max_length=100, blank=True)
+    concentracion = models.CharField(max_length=50, blank=True)
+    via_administracion = models.CharField(max_length=50, blank=True)
+    frecuencia = models.CharField(max_length=50, blank=True)
 
     def __str__(self):
         return self.nombre
+
+class Medicamento(models.Model):
+    medicamento_maestro = models.ForeignKey(MedicamentoMaestro, on_delete=models.CASCADE)
+    dosis_personalizada = models.CharField(max_length=50, blank=True)
+    frecuencia_personalizada = models.CharField(max_length=50, blank=True)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.medicamento_maestro.nombre} - {self.usuario.username}"
 
 class Recordatorio(models.Model):
     FREQUENCY_CHOICES = [
@@ -86,7 +98,7 @@ class Recordatorio(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.medicamento.nombre} - {self.hora}"
+        return f"{self.medicamento.medicamento_maestro.nombre} - {self.hora}"
     
     class Meta:
         ordering = ['hora']
