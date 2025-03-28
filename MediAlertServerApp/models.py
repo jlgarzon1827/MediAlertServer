@@ -3,6 +3,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from .utils import assign_reviewer_to_report
 
 class UserProfile(models.Model):
     USER_TYPES = [
@@ -180,6 +181,15 @@ class AdverseEffect(models.Model):
             ("manage_reports", "Can manage adverse effect reports"),
             ("receive_alerts", "Can receive adverse effect alerts")
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.pk and self.status == 'CREATED':
+            reviewer = assign_reviewer_to_report()
+            if reviewer:
+                self.reviewer = reviewer
+                self.status = 'ASSIGNED'
+        
+        super().save(*args, **kwargs)
 
 class AlertNotification(models.Model):
     PRIORITY_CHOICES = [
