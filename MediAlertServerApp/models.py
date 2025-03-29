@@ -5,6 +5,15 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .utils import assign_reviewer_to_report
 
+class Institution(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    address = models.TextField(blank=True, null=True)
+    contact_email = models.EmailField(blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
 class UserProfile(models.Model):
     USER_TYPES = [
         ('PATIENT', 'Paciente'),
@@ -17,7 +26,7 @@ class UserProfile(models.Model):
     user_type = models.CharField(max_length=20, choices=USER_TYPES, default='PATIENT')
     professional_id = models.CharField(max_length=50, blank=True, null=True)
     specialty = models.CharField(max_length=100, blank=True, null=True)
-    institution = models.CharField(max_length=200, blank=True, null=True)
+    institution = models.ForeignKey(Institution, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
     phone = models.CharField(max_length=20, blank=True, null=True)
     
     def __str__(self):
@@ -173,6 +182,8 @@ class AdverseEffect(models.Model):
     additional_info = models.TextField(null=True, blank=True)
     reclamation_reason = models.TextField(null=True, blank=True)
     revertion_reason = models.TextField(null=True, blank=True)
+
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
 
     class Meta:
         ordering = ['-reported_at']

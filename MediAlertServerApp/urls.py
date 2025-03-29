@@ -4,9 +4,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
 from .views import UserViewSet, DispositivoUsuarioViewSet, RegisterView, ProfileView, \
     MedicamentoMaestroViewSet, MedicamentoViewSet, RecordatorioViewSet, RegistroTomaViewSet, \
-    AdverseEffectViewSet, AlertNotificationViewSet, DashboardViewSet
+    AdverseEffectViewSet, AlertNotificationViewSet, DashboardViewSet, InstitutionViewSet
 
 router = DefaultRouter()
+router.register(r'institutions', InstitutionViewSet, basename='institutions')
 router.register(r'medicamentos', MedicamentoViewSet, basename='medicamento')
 router.register(r'medicamentos-maestros', MedicamentoMaestroViewSet, basename='medicamentos-maestros')
 router.register(r'recordatorios', RecordatorioViewSet, basename='recordatorio')

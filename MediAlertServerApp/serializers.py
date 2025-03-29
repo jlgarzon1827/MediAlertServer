@@ -1,7 +1,12 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import UserProfile, MedicamentoMaestro, Medicamento, Recordatorio, \
-    RegistroToma, AdverseEffect, AlertNotification, DispositivoUsuario
+    RegistroToma, AdverseEffect, AlertNotification, DispositivoUsuario, Institution
+
+class InstitutionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Institution
+        fields = ['id', 'name', 'address', 'contact_email', 'phone_number']
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -51,7 +56,7 @@ class CombinedProfileSerializer(serializers.ModelSerializer):
                 'user_type': profile.user_type,
                 'professional_id': profile.professional_id,
                 'specialty': profile.specialty,
-                'institution': profile.institution,
+                'institution': profile.institution.id if profile.institution else None,
                 'phone': profile.phone,
             }
         except UserProfile.DoesNotExist:
@@ -63,14 +68,15 @@ class DispositivoUsuarioSerializer(serializers.ModelSerializer):
         fields = ('id', 'token', 'nombre_dispositivo', 'modelo', 'sistema_operativo', 'version_app', 'ultimo_acceso', 'activo')
         read_only_fields = ('id', 'ultimo_acceso')
 
-    
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=True)
     is_professional = serializers.BooleanField(required=False, default=False)
     professional_id = serializers.CharField(required=False, allow_blank=True)
     specialty = serializers.CharField(required=False, allow_blank=True)
-    institution = serializers.CharField(required=False, allow_blank=True)
+    institution = serializers.PrimaryKeyRelatedField(
+        queryset=Institution.objects.all(), required=False, allow_null=True
+    )
     
     class Meta:
         model = User
@@ -81,17 +87,21 @@ class RegisterSerializer(serializers.ModelSerializer):
         is_professional = validated_data.pop('is_professional', False)
         professional_id = validated_data.pop('professional_id', '')
         specialty = validated_data.pop('specialty', '')
-        institution = validated_data.pop('institution', '')
+        institution = validated_data.pop('institution', None)
         
         user = User.objects.create_user(**validated_data)
         
-        # Actualizar perfil si es profesional
         if is_professional:
             user.profile.user_type = 'PROFESSIONAL'
             user.profile.professional_id = professional_id
             user.profile.specialty = specialty
             user.profile.institution = institution
-            user.profile.save()
+        else:
+            default_institution = Institution.objects.first()
+            user.profile.user_type = 'PATIENT'
+            user.profile.institution = default_institution
+
+        user.profile.save()
         
         return user
 
@@ -153,7 +163,6 @@ class AdverseEffectSerializer(serializers.ModelSerializer):
         read_only_fields = ('reported_at', 'updated_at', 'status', 'medicamento_nombre')
 
     def validate(self, data):
-        # Validar que end_date es posterior a start_date si existe
         if 'end_date' in data and data['end_date'] < data['start_date']:
             raise serializers.ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
         return data

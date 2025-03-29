@@ -13,14 +13,24 @@ from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 from django.http import HttpResponse
-from .models import DispositivoUsuario, MedicamentoMaestro, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification
+from .models import DispositivoUsuario, MedicamentoMaestro, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification, Institution
 from .serializers import UserSerializer, CombinedProfileSerializer, DispositivoUsuarioSerializer, \
     RegisterSerializer, MedicamentoMaestroSerializer, MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, \
-    AdverseEffectSerializer, AlertNotificationSerializer
+    AdverseEffectSerializer, AlertNotificationSerializer, InstitutionSerializer
 from .services import FirebaseService
 from .report_generator import ReportGenerator
 from .permissions import IsProfessional, IsAdmin, IsSupervisor, IsSupervisorOrReadOnly, IsPatient, IsProfessionalOrSupervisorOrAdmin
 
+class InstitutionViewSet(viewsets.ModelViewSet):
+    queryset = Institution.objects.all()
+    serializer_class = InstitutionSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdmin()]
+        return [IsAdmin() | IsSupervisor()]
 
 class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
@@ -222,6 +232,8 @@ class MedicamentoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if self.request.user.profile.user_type == 'PROFESSIONAL':
+            return Medicamento.objects.all()
         return Medicamento.objects.filter(usuario=self.request.user)
 
     def perform_create(self, serializer):
@@ -446,11 +458,9 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if self.request.user.profile.user_type == 'ADMIN':
             return AdverseEffect.objects.all()
-        elif self.request.user.profile.user_type == 'SUPERVISOR':
-            return AdverseEffect.objects.all()
-        elif self.request.user.profile.user_type == 'PROFESSIONAL':
-            return AdverseEffect.objects.filter(reviewer=self.request.user)
-        return AdverseEffect.objects.filter(patient=self.request.user)
+        elif self.request.user.profile.user_type == 'PROFESSIONAL' or self.request.user.profile.user_type == 'SUPERVISOR':
+            return AdverseEffect.objects.filter(reviewer=self.request.user, institution=self.request.user.profile.institution)
+        return AdverseEffect.objects.filter(patient=self.request.user, institution=self.request.user.profile.institution)
 
     @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
     def assign_reviewer(self, request, pk=None):
@@ -630,6 +640,10 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         type_param = request.query_params.get('type')
         if type_param:
             filters['type'] = type_param
+
+        institution = request.query_params.get('institution')
+        if institution:
+            filters['institution__id'] = institution
         
         date_from = request.query_params.get('from')
         date_to = request.query_params.get('to')
@@ -652,6 +666,8 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         serializer = AdverseEffectSerializer(result_page, many=True)
         
         return paginator.get_paginated_response(serializer.data)
+    
+
 
 class AlertNotificationViewSet(viewsets.ModelViewSet):
     serializer_class = AlertNotificationSerializer
@@ -760,16 +776,16 @@ class DashboardViewSet(viewsets.ViewSet):
     def medication_statistics(self, request):
         return Response({
             'most_reported': AdverseEffect.objects.values(
-                'medication__nombre'
+                'medication__medicamento_maestro__nombre'
             ).annotate(
                 count=Count('id')
             ).order_by('-count')[:5],
             
             'by_severity': AdverseEffect.objects.values(
-                'medication__nombre', 'severity'
+                'medication__medicamento_maestro__nombre', 'severity'
             ).annotate(
                 count=Count('id')
-            ).order_by('medication__nombre', '-count')
+            ).order_by('medication__medicamento_maestro__nombre', '-count')
         })
 
     @action(detail=False, methods=['get'])
@@ -796,8 +812,7 @@ class DashboardViewSet(viewsets.ViewSet):
     def pending_reviews(self, request):
         user = request.user
 
-        # Filter reports by reviewer if applicable
-        queryset = AdverseEffect.objects.filter(status='PENDING')
+        queryset = AdverseEffect.objects.filter(status='IN_REVISION')
         if hasattr(user, 'profile') and user.profile.user_type == 'PROFESSIONAL':
             queryset = queryset.filter(reviewer=user)
 
