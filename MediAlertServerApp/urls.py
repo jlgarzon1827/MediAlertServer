@@ -3,11 +3,13 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
 from .views import UserViewSet, DispositivoUsuarioViewSet, RegisterView, ProfileView, \
-    MedicamentoViewSet, RecordatorioViewSet, RegistroTomaViewSet, AdverseEffectViewSet, \
-    AlertNotificationViewSet, DashboardViewSet
+    MedicamentoMaestroViewSet, MedicamentoViewSet, RecordatorioViewSet, RegistroTomaViewSet, \
+    AdverseEffectViewSet, AlertNotificationViewSet, DashboardViewSet, InstitutionViewSet
 
 router = DefaultRouter()
+router.register(r'institutions', InstitutionViewSet, basename='institutions')
 router.register(r'medicamentos', MedicamentoViewSet, basename='medicamento')
+router.register(r'medicamentos-maestros', MedicamentoMaestroViewSet, basename='medicamentos-maestros')
 router.register(r'recordatorios', RecordatorioViewSet, basename='recordatorio')
 router.register(r'registros-toma', RegistroTomaViewSet, basename='registro-toma')
 router.register(r'adverse-effects', AdverseEffectViewSet, basename='adverse-effect')
@@ -18,8 +20,9 @@ router.register(r'dispositivos', DispositivoUsuarioViewSet, basename='dispositiv
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('adverse-effects/<int:pk>/mark-as-reviewed/', views.AdverseEffectViewSet.as_view({'post': 'mark_as_reviewed'}), name='adverse-effect-mark-as-reviewed'),
     path('adverse-effects/<int:pk>/assign-reviewer/', views.AdverseEffectViewSet.as_view({'post': 'assign_reviewer'}), name='adverse-effect-assign-reviewer'),
+    path('adverse-effects/<int:pk>/update-status/', views.AdverseEffectViewSet.as_view({'post': 'update_status'}), name='adverse-effect-update-status'),
+    path('adverse-effects/<int:pk>/provide-additional-info/', views.AdverseEffectViewSet.as_view({'post': 'provide_additional_info'}), name='adverse-effect-provide-additional-info'),
     path('adverse-effects/filtered-reports/', AdverseEffectViewSet.as_view({'get': 'filtered_reports'}), name='adverse-effect-filtered-reports'),
     path('dashboard/pending-reviews/', DashboardViewSet.as_view({'get': 'pending_reviews'}), name='dashboard-pending-reviews'),
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

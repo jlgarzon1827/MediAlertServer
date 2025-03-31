@@ -3,18 +3,30 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from .utils import assign_reviewer_to_report
+
+class Institution(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    address = models.TextField(blank=True, null=True)
+    contact_email = models.EmailField(blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
 
 class UserProfile(models.Model):
     USER_TYPES = [
         ('PATIENT', 'Paciente'),
-        ('PROFESSIONAL', 'Profesional de la salud')
+        ('PROFESSIONAL', 'Profesional de la salud'),
+        ('ADMIN', 'Admin'),
+        ('SUPERVISOR', 'Supervisor')
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     user_type = models.CharField(max_length=20, choices=USER_TYPES, default='PATIENT')
     professional_id = models.CharField(max_length=50, blank=True, null=True)
     specialty = models.CharField(max_length=100, blank=True, null=True)
-    institution = models.CharField(max_length=200, blank=True, null=True)
+    institution = models.ForeignKey(Institution, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
     phone = models.CharField(max_length=20, blank=True, null=True)
     
     def __str__(self):
@@ -47,14 +59,26 @@ class DispositivoUsuario(models.Model):
     class Meta:
         unique_together = ('usuario', 'token')
 
-class Medicamento(models.Model):
+class MedicamentoMaestro(models.Model):
     nombre = models.CharField(max_length=100)
     dosis = models.CharField(max_length=50)
-    frecuencia = models.CharField(max_length=50)
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    forma_farmaceutica = models.CharField(max_length=50, blank=True)
+    principio_activo = models.CharField(max_length=100, blank=True)
+    concentracion = models.CharField(max_length=50, blank=True)
+    via_administracion = models.CharField(max_length=50, blank=True)
+    frecuencia = models.CharField(max_length=50, blank=True)
 
     def __str__(self):
         return self.nombre
+
+class Medicamento(models.Model):
+    medicamento_maestro = models.ForeignKey(MedicamentoMaestro, on_delete=models.CASCADE)
+    dosis_personalizada = models.CharField(max_length=50, blank=True)
+    frecuencia_personalizada = models.CharField(max_length=50, blank=True)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.medicamento_maestro.nombre} - {self.usuario.username}"
 
 class Recordatorio(models.Model):
     FREQUENCY_CHOICES = [
@@ -84,7 +108,7 @@ class Recordatorio(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.medicamento.nombre} - {self.hora}"
+        return f"{self.medicamento.medicamento_maestro.nombre} - {self.hora}"
     
     class Meta:
         ordering = ['hora']
@@ -124,8 +148,13 @@ class AdverseEffect(models.Model):
     ]
 
     STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
-        ('REVIEWED', 'Reviewed')
+        ('CREATED', 'Created'),
+        ('ASSIGNED', 'Assigned'),
+        ('IN_REVISION', 'En Revisión'),
+        ('PENDING_INFORMATION', 'Pending information'),
+        ('REJECTED', 'Rejected'),
+        ('RECLAIMED', 'Reclaimed'),
+        ('APPROVED', 'Approved')
     ]
 
     patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='adverse_effects')
@@ -146,9 +175,15 @@ class AdverseEffect(models.Model):
     # Metadatos
     reported_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='CREATED')
 
     reviewer = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_reviews')
+
+    additional_info = models.TextField(null=True, blank=True)
+    reclamation_reason = models.TextField(null=True, blank=True)
+    revertion_reason = models.TextField(null=True, blank=True)
+
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
 
     class Meta:
         ordering = ['-reported_at']
@@ -157,6 +192,15 @@ class AdverseEffect(models.Model):
             ("manage_reports", "Can manage adverse effect reports"),
             ("receive_alerts", "Can receive adverse effect alerts")
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.pk and self.status == 'CREATED':
+            reviewer = assign_reviewer_to_report()
+            if reviewer:
+                self.reviewer = reviewer
+                self.status = 'ASSIGNED'
+        
+        super().save(*args, **kwargs)
 
 class AlertNotification(models.Model):
     PRIORITY_CHOICES = [

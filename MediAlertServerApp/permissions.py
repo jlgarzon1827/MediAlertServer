@@ -1,5 +1,28 @@
 from rest_framework import permissions
 
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return (request.user.is_authenticated and 
+                hasattr(request.user, 'profile') and 
+                request.user.profile.user_type == 'ADMIN')
+
+class IsSupervisor(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return (request.user.is_authenticated and 
+                hasattr(request.user, 'profile') and 
+                request.user.profile.user_type == 'SUPERVISOR')
+    
+class IsSupervisorOrReadOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return (request.user.is_authenticated and 
+                    hasattr(request.user, 'profile') and 
+                    request.user.profile.user_type in ['SUPERVISOR', 'PROFESSIONAL', 'PATIENT'])
+        else:
+            return (request.user.is_authenticated and 
+                    hasattr(request.user, 'profile') and 
+                    request.user.profile.user_type == 'SUPERVISOR')
+
 class IsProfessional(permissions.BasePermission):
     """
     Permite acceso solo a usuarios profesionales.
@@ -9,6 +32,20 @@ class IsProfessional(permissions.BasePermission):
                 hasattr(request.user, 'profile') and 
                 request.user.profile.user_type == 'PROFESSIONAL')
     
-class CanAssignReviewers(permissions.BasePermission):
+class IsPatient(permissions.BasePermission):
+    """
+    Permite acceso solo a usuarios pacientes.
+    """
     def has_permission(self, request, view):
-        return request.user.has_perm('can_assign_reviewers')
+        return (request.user.is_authenticated and 
+                hasattr(request.user, 'profile') and 
+                request.user.profile.user_type == 'PATIENT')
+
+class IsProfessionalOrSupervisorOrAdmin(permissions.BasePermission):
+    """
+    Permite acceso a profesionales, supervisores o administradores.
+    """
+    def has_permission(self, request, view):
+        user_type = getattr(request.user.profile, 'user_type', None)
+        return user_type in ['PROFESSIONAL', 'SUPERVISOR', 'ADMIN']
+

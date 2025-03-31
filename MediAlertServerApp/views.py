@@ -5,7 +5,7 @@ from rest_framework import generics, permissions, viewsets, status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework.permissions import BasePermission, IsAuthenticated, DjangoModelPermissions
-from rest_framework.decorators import permission_classes, action
+from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Count, F, Q
 from django.db.models import Count, Avg, Max, Min
@@ -13,26 +13,50 @@ from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 from django.http import HttpResponse
-from .models import DispositivoUsuario, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification
-from .serializers import UserSerializer, UserProfileSerializer, DispositivoUsuarioSerializer, \
-    RegisterSerializer, MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, \
-    AdverseEffectSerializer, AlertNotificationSerializer
-from .services import NotificationService, FirebaseService
+from .models import DispositivoUsuario, MedicamentoMaestro, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification, Institution
+from .serializers import UserSerializer, CombinedProfileSerializer, DispositivoUsuarioSerializer, \
+    RegisterSerializer, MedicamentoMaestroSerializer, MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, \
+    AdverseEffectSerializer, AlertNotificationSerializer, InstitutionSerializer
+from .services import FirebaseService
 from .report_generator import ReportGenerator
-from .permissions import IsProfessional, CanAssignReviewers
+from .permissions import IsProfessional, IsAdmin, IsSupervisor, IsSupervisorOrReadOnly, IsPatient, IsProfessionalOrSupervisorOrAdmin
 
+class InstitutionViewSet(viewsets.ModelViewSet):
+    queryset = Institution.objects.all()
+    serializer_class = InstitutionSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdmin()]
+        return [IsAdmin() | IsSupervisor()]
 
 class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
     
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()]
+        elif self.action == 'assign_permissions':
+            return [IsAdmin()]
+        return [IsAuthenticated()]
+
     def get_queryset(self):
-        # Los profesionales pueden ver todos los usuarios
+        queryset = User.objects.all()
+        
+        user_type = self.request.GET.get('user_type')
+        if user_type:
+            if user_type == 'PROFESSIONAL':
+                queryset = queryset.filter(profile__user_type='PROFESSIONAL')
+        
+        # Resto de la lógica para filtrar según el usuario autenticado
+        if hasattr(self.request.user, 'profile') and self.request.user.profile.user_type in ['ADMIN', 'SUPERVISOR']:
+            return queryset
         # Los pacientes solo pueden verse a sí mismos
-        if hasattr(self.request.user, 'profile') and self.request.user.profile.user_type == 'PROFESSIONAL':
-            return User.objects.all()
-        return User.objects.filter(id=self.request.user.id)
-    
+        return queryset.filter(id=self.request.user.id)
+
     @action(detail=False, methods=['get'])
     def me(self, request):
         """Endpoint para obtener el perfil del usuario actual y sus permisos"""
@@ -102,6 +126,38 @@ class UserViewSet(viewsets.ModelViewSet):
         except Permission.DoesNotExist:
             return Response({'error': 'Permission not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
+    def set_role(self, request, pk=None):
+        try:
+            user = User.objects.get(pk=pk)
+            role = request.data.get('role')
+            
+            if role in ['ADMIN', 'SUPERVISOR', 'PROFESSIONAL', 'PATIENT']:
+                user.profile.user_type = role
+                user.profile.save()
+                
+                # Añadir o remover del grupo correspondiente
+                if role == 'ADMIN':
+                    admin_group, _ = Group.objects.get_or_create(name='Admins')
+                    user.groups.clear()
+                    user.groups.add(admin_group)
+                elif role == 'SUPERVISOR':
+                    supervisor_group, _ = Group.objects.get_or_create(name='Supervisors')
+                    user.groups.clear()
+                    user.groups.add(supervisor_group)
+                elif role == 'PROFESSIONAL':
+                    professional_group, _ = Group.objects.get_or_create(name='HealthProfessionals')
+                    user.groups.clear()
+                    user.groups.add(professional_group)
+                elif role == 'PATIENT':
+                    patients_group, _ = Group.objects.get_or_create(name='Patients')
+                    user.groups.clear()
+                    user.groups.add(patients_group)
+                
+                return Response({'status': 'Role updated'})
+            return Response({'error': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
     
 class DispositivoUsuarioViewSet(viewsets.ModelViewSet):
     serializer_class = DispositivoUsuarioSerializer
@@ -166,12 +222,18 @@ class DispositivoUsuarioViewSet(viewsets.ModelViewSet):
             return Response({'status': 'notification sent'})
         return Response({'error': 'Error al enviar notificación'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class MedicamentoMaestroViewSet(viewsets.ModelViewSet):
+    serializer_class = MedicamentoMaestroSerializer
+    permission_classes = [IsSupervisorOrReadOnly]
+    queryset = MedicamentoMaestro.objects.all()
 
 class MedicamentoViewSet(viewsets.ModelViewSet):
     serializer_class = MedicamentoSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if self.request.user.profile.user_type == 'PROFESSIONAL':
+            return Medicamento.objects.all()
         return Medicamento.objects.filter(usuario=self.request.user)
 
     def perform_create(self, serializer):
@@ -373,53 +435,43 @@ class RegisterView(generics.CreateAPIView):
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = UserSerializer
+    serializer_class = CombinedProfileSerializer
 
     def get_object(self):
         return self.request.user
 
-class CanManageReports(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.has_perm('farmacovigilancia.manage_reports')
-
 class AdverseEffectViewSet(viewsets.ModelViewSet):
     serializer_class = AdverseEffectSerializer
-    
-    def get_queryset(self):
-        # Los profesionales pueden ver todos los efectos adversos
-        # Los pacientes solo pueden ver los suyos
-        if hasattr(self.request.user, 'profile') and self.request.user.profile.user_type == 'PROFESSIONAL':
-            return AdverseEffect.objects.all()
-        return AdverseEffect.objects.filter(patient=self.request.user)
-    
+    permission_classes = [IsAuthenticated]
+
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticated()]
-        elif self.action == 'mark_as_reviewed':
-            return [IsAuthenticated(), IsProfessional()]
+        elif self.action in ['create']:
+            return [IsAuthenticated()]
+        elif self.action in ['update', 'partial_update']:
+            return [IsProfessional() | IsSupervisor() | IsAdmin()]
+        elif self.action in ['assign_reviewer', 'revert_status', 'review_reclamation']:
+            return [IsSupervisor()]
         return [IsAuthenticated()]
 
-    def perform_create(self, serializer):
-        adverse_effect = serializer.save(patient=self.request.user)
-        # Crear notificación después de guardar el efecto adverso
-        NotificationService.create_alert(adverse_effect)
+    def get_queryset(self):
+        if self.request.user.profile.user_type == 'ADMIN':
+            return AdverseEffect.objects.all()
+        elif self.request.user.profile.user_type == 'PROFESSIONAL' or self.request.user.profile.user_type == 'SUPERVISOR':
+            return AdverseEffect.objects.filter(reviewer=self.request.user, institution=self.request.user.profile.institution)
+        return AdverseEffect.objects.filter(patient=self.request.user, institution=self.request.user.profile.institution)
 
-    @action(detail=True, methods=['post'])
-    def mark_as_reviewed(self, request, pk=None):
-        adverse_effect = self.get_object()
-        adverse_effect.status = 'REVIEWED'
-        adverse_effect.save()
-        return Response({'status': 'reviewed'})
-    
-    @action(detail=True, methods=['post'], permission_classes=[CanAssignReviewers])
+    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
     def assign_reviewer(self, request, pk=None):
         adverse_effect = self.get_object()
         reviewer_id = request.data.get('reviewer_id')
         
         try:
             reviewer = User.objects.get(pk=reviewer_id)
-            if hasattr(reviewer, 'profile') and reviewer.profile.user_type == 'PROFESSIONAL':
+            if reviewer.profile.user_type == 'PROFESSIONAL':
                 adverse_effect.reviewer = reviewer
+                adverse_effect.status = 'ASSIGNED'
                 adverse_effect.save()
                 return Response({'status': 'Reviewer assigned successfully'})
             else:
@@ -427,43 +479,194 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({'error': 'Reviewer not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    #Supervisor transitions
+    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
+    def revert_status(self, request, pk=None):
+        adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'APPROVED':
+            return Response({'error': 'No se puede revertir en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        revertion_reason = request.data.get('reason')
+        if not revertion_reason:
+            return Response({'error': 'Debe proporcionar un motivo para la reversión'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        adverse_effect.revertion_reason = revertion_reason
+        adverse_effect.status = 'IN_REVISION'
+        adverse_effect.save()
+        
+        return Response({'status': 'Estado revertido', 'reason': revertion_reason})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
+    def approve_reclamation(self, request, pk=None):
+        adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'RECLAIMED':
+            return Response({'error': 'No se puede aprovar una reclamación en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.status = 'APPROVED'
+        adverse_effect.save()
+        return Response({'status': 'Reclamation accepted'})
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
+    def reject_reclamation(self, request, pk=None):
+        adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'RECLAIMED':
+            return Response({'error': 'No se puede rechazar la reclamación en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.status = 'REJECTED'
+        adverse_effect.save()
+        return Response({'status': 'Reclamation rejected'})
+
+    #Professional transitions
+    @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
+    def start_review(self, request, pk=None):
+        adverse_effect = self.get_object()
+        
+        if adverse_effect.status != 'ASSIGNED':
+            return Response({'error': 'No se puede iniciar la revisión en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        adverse_effect.status = 'IN_REVISION'
+        adverse_effect.save()
+        return Response({'status': 'Revision initiated'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
+    def request_additional_info(self, request, pk=None):
+        adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'IN_REVISION':
+            return Response({'error': 'No se puede solicitar información adicional en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.status = 'PENDING_INFORMATION'
+        adverse_effect.save()
+        return Response({'status': 'Additional info requested'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
+    def approve_report(self, request, pk=None):
+        adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'IN_REVISION':
+            return Response({'error': 'No se puede aprobar un reporte en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.status = 'APPROVED'
+        adverse_effect.save()
+        return Response({'status': 'Report approved'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
+    def reject_report(self, request, pk=None):
+        adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'IN_REVISION':
+            return Response({'error': 'No se puede rechazar un reporte en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.status = 'REJECTED'
+        adverse_effect.save()
+        return Response({'status': 'Report rejected'})
+
+    #Patient transitions
+    @action(detail=True, methods=['post'], permission_classes=[IsPatient])
+    def start_reclamation(self, request, pk=None):
+        adverse_effect = self.get_object()
+
+        if adverse_effect.status != 'REJECTED':
+            return Response({'error': 'No se puede iniciar la reclamación en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if adverse_effect.patient != request.user:
+            return Response({'error': 'Solo el paciente puede iniciar la reclamación'}, status=status.HTTP_403_FORBIDDEN)
+
+        reclamation_reason = request.data.get('reclamation_reason')
+        if not reclamation_reason:
+            return Response({'error': 'El motivo de la reclamación es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
+
+        adverse_effect.reclamation_reason = reclamation_reason
+        adverse_effect.status = 'RECLAIMED'
+        adverse_effect.save()
+
+        return Response({'status': 'Reclamación iniciada', 'reclamation_reason': reclamation_reason})
+
+
+    @action(detail=True, methods=['post'], permission_classes=[IsPatient])
+    def provide_additional_info(self, request, pk=None):
+        adverse_effect = self.get_object()
+        
+        if adverse_effect.status != 'PENDING_INFORMATION':
+            return Response({'error': 'No se puede proporcionar información adicional en este estado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if adverse_effect.patient != request.user:
+            return Response({'error': 'Solo el paciente puede proporcionar información adicional'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Procesar la información adicional aquí
+        additional_info = request.data.get('additional_info')
+        
+        # Guardar la información adicional en la base de datos
+        adverse_effect.additional_info = additional_info
+        adverse_effect.status = 'IN_REVISION'
+        adverse_effect.save()
+        
+        return Response({'status': 'Información adicional proporcionada'})
+
+    # TODO jlgarzon: action for testing purposes
+    @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
+    def update_status(self, request, pk=None):
+        adverse_effect = self.get_object()
+        new_status = request.data.get('status')
+        
+        if new_status in ['CREATED', 'ASSIGNED', 'IN_REVISION', 'PENDING_INFORMATION', 'REJECTED', 'RECLAIMED', 'APPROVED']:
+            adverse_effect.status = new_status
+            adverse_effect.save()
+            return Response({'status': f'Estado actualizado a {new_status}'})
+        else:
+            return Response({'error': 'Estado no válido'}, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=False, methods=['get'])
     def filtered_reports(self, request):
-        queryset = AdverseEffect.objects.all()
+        queryset = self.get_queryset()
         
         filters = {}
         
         severity = request.query_params.get('severity')
         if severity:
             filters['severity'] = severity
-            
+        
         medication = request.query_params.get('medication')
         if medication:
             filters['medication__nombre__icontains'] = medication
-
+        
         status = request.query_params.get('status')
         if status:
             filters['status__iexact'] = status
-            
+
+        type_param = request.query_params.get('type')
+        if type_param:
+            filters['type'] = type_param
+
+        institution = request.query_params.get('institution')
+        if institution:
+            filters['institution__id'] = institution
+        
         date_from = request.query_params.get('from')
         date_to = request.query_params.get('to')
+        
         if date_from or date_to:
             date_filter = Q()
             if date_from:
                 date_filter &= Q(reported_at__gte=date_from)
             if date_to:
                 date_filter &= Q(reported_at__lte=date_to)
+            
             queryset = queryset.filter(date_filter)
-
+        
         queryset = queryset.filter(**filters).order_by('-reported_at')
-
+        
         paginator = PageNumberPagination()
         paginator.page_size = 20
         result_page = paginator.paginate_queryset(queryset, request)
-
+        
         serializer = AdverseEffectSerializer(result_page, many=True)
-
+        
         return paginator.get_paginated_response(serializer.data)
+    
 
 
 class AlertNotificationViewSet(viewsets.ModelViewSet):
@@ -487,23 +690,76 @@ class AlertNotificationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class DashboardViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated, IsProfessional]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return AdverseEffect.objects.all()
 
     def get_permissions(self):
         """
-        Verificar permisos específicos para cada endpoint
+        Verificar permisos específicos para cada endpoint.
         """
         if self.action in ['statistics', 'medication_statistics', 'trends']:
-            # Solo requiere ser profesional
-            return [IsAuthenticated(), IsProfessional()]
+            return [IsAuthenticated(), IsProfessionalOrSupervisorOrAdmin()]
+        elif self.action in ['supervisor_view']:
+            return [IsAuthenticated(), IsSupervisor()]
         else:
-            # Requiere permiso específico para gestionar reportes
-            return [IsAuthenticated(), IsProfessional(), 
-                   DjangoModelPermissions()]
+            return [IsAuthenticated()]
+        
+    @action(detail=False, methods=['get'])
+    def supervisor_view(self, request):
+        """
+        Vista general de reportes para supervisores.
+        """
+        queryset = AdverseEffect.objects.all()
 
+        # Aplicar filtros si existen
+        filters = {}
+        
+        severity = request.query_params.get('severity')
+        if severity:
+            filters['severity'] = severity
+
+        medication = request.query_params.get('medication')
+        if medication:
+            filters['medication__nombre__icontains'] = medication
+
+        status = request.query_params.get('status')
+        if status:
+            filters['status__iexact'] = status
+
+        reviewer = request.query_params.get('reviewer')
+        if reviewer:
+            if reviewer.lower() == 'null':
+                filters['reviewer__isnull'] = True
+            else:
+                filters['reviewer'] = reviewer
+
+        type_param = request.query_params.get('type')
+        if type_param:
+            filters['type'] = type_param
+
+        date_from = request.query_params.get('from')
+        date_to = request.query_params.get('to')
+        
+        if date_from or date_to:
+            date_filter = Q()
+            if date_from:
+                date_filter &= Q(reported_at__gte=date_from)
+            if date_to:
+                date_filter &= Q(reported_at__lte=date_to)
+            queryset = queryset.filter(date_filter)
+
+        queryset = queryset.filter(**filters).order_by('-reported_at')
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+        result_page = paginator.paginate_queryset(queryset, request)
+        
+        serializer = AdverseEffectSerializer(result_page, many=True)
+        
+        return paginator.get_paginated_response(serializer.data)
+    
     @action(detail=False, methods=['get'])
     def statistics(self, request):
         total_reports = AdverseEffect.objects.count()
@@ -520,16 +776,16 @@ class DashboardViewSet(viewsets.ViewSet):
     def medication_statistics(self, request):
         return Response({
             'most_reported': AdverseEffect.objects.values(
-                'medication__nombre'
+                'medication__medicamento_maestro__nombre'
             ).annotate(
                 count=Count('id')
             ).order_by('-count')[:5],
             
             'by_severity': AdverseEffect.objects.values(
-                'medication__nombre', 'severity'
+                'medication__medicamento_maestro__nombre', 'severity'
             ).annotate(
                 count=Count('id')
-            ).order_by('medication__nombre', '-count')
+            ).order_by('medication__medicamento_maestro__nombre', '-count')
         })
 
     @action(detail=False, methods=['get'])
@@ -556,8 +812,7 @@ class DashboardViewSet(viewsets.ViewSet):
     def pending_reviews(self, request):
         user = request.user
 
-        # Filter reports by reviewer if applicable
-        queryset = AdverseEffect.objects.filter(status='PENDING')
+        queryset = AdverseEffect.objects.filter(status='IN_REVISION')
         if hasattr(user, 'profile') and user.profile.user_type == 'PROFESSIONAL':
             queryset = queryset.filter(reviewer=user)
 
