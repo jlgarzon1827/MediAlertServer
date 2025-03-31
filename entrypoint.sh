@@ -1,9 +1,19 @@
 #!/bin/bash
 
-# Salir inmediatamente si algún comando falla
 set -e
 
-echo "Aplicando migraciones..."
+if [ -d "./db.sqlite3" ]; then
+  echo "⚠️  Error: db.sqlite3 es un directorio. Eliminándolo..."
+  rm -rf ./db.sqlite3
+fi
+
+if [ ! -f "./db.sqlite3" ]; then
+  echo "🔧 Creando archivo SQLite..."
+  touch ./db.sqlite3
+  chmod 666 ./db.sqlite3
+fi
+
+echo "✅ Base de datos lista. Aplicando migraciones..."
 python manage.py makemigrations
 python manage.py migrate
 
