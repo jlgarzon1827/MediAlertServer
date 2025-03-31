@@ -4,6 +4,14 @@ FROM python:3.13-slim
 # Establecer variables de entorno para optimizar Python
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV DJANGO_ALLOWED_HOSTS="192.168.1.70"
+
+# Instalar herramientas del sistema y dependencias necesarias
+RUN apt-get update && apt-get install -y \
+    gcc \
+    pkg-config \
+    default-libmysqlclient-dev \
+    && apt-get clean
 
 # Establecer el directorio de trabajo dentro del contenedor
 WORKDIR /MedialertServer
