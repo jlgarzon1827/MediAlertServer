@@ -4,7 +4,7 @@ FROM python:3.13-slim
 # Establecer variables de entorno para optimizar Python
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV DJANGO_ALLOWED_HOSTS="192.168.1.70"
+ENV DJANGO_ALLOWED_HOSTS="med-vigilance"
 
 # Instalar herramientas del sistema y dependencias necesarias
 RUN apt-get update && apt-get install -y \
