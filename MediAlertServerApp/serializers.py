@@ -11,7 +11,7 @@ class InstitutionSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['user_type', 'professional_id', 'specialty', 'institution', 'phone']
+        fields = ['user_type', 'data_protection_accepted', 'data_protection_accepted_at', 'professional_id', 'specialty', 'institution', 'phone']
         
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer()
@@ -54,6 +54,7 @@ class CombinedProfileSerializer(serializers.ModelSerializer):
             profile = UserProfile.objects.get(user=obj)
             return {
                 'user_type': profile.user_type,
+                'data_protection_accepted': profile.data_protection_accepted,
                 'professional_id': profile.professional_id,
                 'specialty': profile.specialty,
                 'institution': profile.institution.id if profile.institution else None,
@@ -156,6 +157,10 @@ class AdverseEffectSerializer(serializers.ModelSerializer):
     additional_info = serializers.CharField(required=False, allow_null=True)
     reclamation_reason = serializers.CharField(required=False, allow_null=True)
     revertion_reason = serializers.CharField(required=False, allow_null=True)
+
+    class Meta:
+        model = AdverseEffect
+        fields = '__all__'
 
     class Meta:
         model = AdverseEffect

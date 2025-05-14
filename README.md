@@ -153,7 +153,7 @@ Endpoints:
      Retrieve list of adverse effects
      Note: Regular users see only their own reports, professionals see all reports
      Query Parameters:
-       - severity: Filter by severity (LEVE, MODERADA, GRAVE, MORTAL)
+       - severity: Filter by severity (LEVE, MODERADA, GRAVE, MUY_GRAVE)
        - type: Filter by type (A, B)
        - from: Start date (YYYY-MM-DD)
        - to: End date (YYYY-MM-DD)
@@ -165,7 +165,7 @@ Endpoints:
        "description": "Effect description",
        "start_date": "YYYY-MM-DD",
        "end_date": "YYYY-MM-DD",
-       "severity": "LEVE|MODERADA|GRAVE|MORTAL",
+       "severity": "LEVE|MODERADA|GRAVE|MUY_GRAVE",
        "type": "A|B",
        "administration_route": "route",
        "dosage": "dosage",

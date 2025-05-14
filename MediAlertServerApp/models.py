@@ -24,6 +24,8 @@ class UserProfile(models.Model):
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     user_type = models.CharField(max_length=20, choices=USER_TYPES, default='PATIENT')
+    data_protection_accepted = models.BooleanField(default=False)
+    data_protection_accepted_at = models.DateTimeField(null=True, blank=True)
     professional_id = models.CharField(max_length=50, blank=True, null=True)
     specialty = models.CharField(max_length=100, blank=True, null=True)
     institution = models.ForeignKey(Institution, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
@@ -139,7 +141,7 @@ class AdverseEffect(models.Model):
         ('LEVE', 'Leve'),
         ('MODERADA', 'Moderada'),
         ('GRAVE', 'Grave'),
-        ('MORTAL', 'Mortal')
+        ('MUY_GRAVE', 'Muy grave')
     ]
 
     TYPE_CHOICES = [
@@ -184,6 +186,9 @@ class AdverseEffect(models.Model):
     revertion_reason = models.TextField(null=True, blank=True)
 
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
+
+    chat_messages = models.JSONField(default=list)
+    chat_active = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-reported_at']

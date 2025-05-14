@@ -13,7 +13,7 @@ from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 from django.http import HttpResponse
-from .models import DispositivoUsuario, MedicamentoMaestro, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification, Institution
+from .models import DispositivoUsuario, MedicamentoMaestro, Medicamento, Recordatorio, RegistroToma, AdverseEffect, AlertNotification, Institution, UserProfile
 from .serializers import UserSerializer, CombinedProfileSerializer, DispositivoUsuarioSerializer, \
     RegisterSerializer, MedicamentoMaestroSerializer, MedicamentoSerializer, RecordatorioSerializer, RegistroTomaSerializer, \
     AdverseEffectSerializer, AlertNotificationSerializer, InstitutionSerializer
@@ -66,7 +66,28 @@ class UserViewSet(viewsets.ModelViewSet):
         data['permissions'] = permissions
         return Response(data)
 
-    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def accept_data_protection(self, request):
+        """Endpoint para aceptar la política de protección de datos"""
+        try:
+            profile = request.user.profile
+            if not profile.data_protection_accepted:
+                profile.data_protection_accepted = True
+                profile.data_protection_accepted_at = timezone.now()
+                profile.save()
+                
+                # Actualiza el serializador para incluir los nuevos campos
+                return Response({
+                    'status': 'policy_accepted',
+                    'data_protection_accepted': profile.data_protection_accepted,
+                    'data_protection_accepted_at': profile.data_protection_accepted_at
+                })
+            return Response({'status': 'policy_already_accepted'})
+            
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Perfil de usuario no encontrado'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+
     @action(detail=False, methods=['put', 'patch'])
     def update_profile(self, request):
         """Endpoint para actualizar el perfil del usuario actual"""
@@ -458,7 +479,9 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if self.request.user.profile.user_type == 'ADMIN':
             return AdverseEffect.objects.all()
-        elif self.request.user.profile.user_type == 'PROFESSIONAL' or self.request.user.profile.user_type == 'SUPERVISOR':
+        elif self.request.user.profile.user_type == 'SUPERVISOR':
+            return AdverseEffect.objects.filter(institution=self.request.user.profile.institution)
+        elif self.request.user.profile.user_type == 'PROFESSIONAL':
             return AdverseEffect.objects.filter(reviewer=self.request.user, institution=self.request.user.profile.institution)
         return AdverseEffect.objects.filter(patient=self.request.user, institution=self.request.user.profile.institution)
 
@@ -539,6 +562,7 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
             return Response({'error': 'No se puede solicitar información adicional en este estado'}, status=status.HTTP_400_BAD_REQUEST)
 
         adverse_effect.status = 'PENDING_INFORMATION'
+        adverse_effect.chat_active = True
         adverse_effect.save()
         return Response({'status': 'Additional info requested'})
 
@@ -606,7 +630,6 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         
         return Response({'status': 'Información adicional proporcionada'})
 
-    # TODO jlgarzon: action for testing purposes
     @action(detail=True, methods=['post'], permission_classes=[IsSupervisor])
     def update_status(self, request, pk=None):
         adverse_effect = self.get_object()
@@ -667,7 +690,50 @@ class AdverseEffectViewSet(viewsets.ModelViewSet):
         
         return paginator.get_paginated_response(serializer.data)
     
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def add_message(self, request, pk=None):
+        adverse_effect = self.get_object()
+        
+        if adverse_effect.status != 'PENDING_INFORMATION':
+            return Response({'error': 'Chat no disponible'}, status=400)
+        
+        user = request.user
+        if user != adverse_effect.patient and user != adverse_effect.reviewer:
+            return Response({'error': 'No autorizado'}, status=403)
+        
+        message = request.data.get('message')
+        if not message:
+            return Response({'error': 'Mensaje vacío'}, status=400)
+        
+        sender_role = 'patient' if user == adverse_effect.patient else 'professional'
+        adverse_effect.chat_messages.append({
+            'sender': sender_role,
+            'message': message,
+            'timestamp': datetime.now().isoformat()
+        })
+        adverse_effect.save()
+        
+        return Response({'status': 'Mensaje añadido'})
 
+    @action(detail=True, methods=['post'], permission_classes=[IsProfessional])
+    def close_chat(self, request, pk=None):
+        adverse_effect = self.get_object()
+        
+        if adverse_effect.status != 'PENDING_INFORMATION':
+            return Response({'error': 'Chat no activo'}, status=400)
+        
+        # Añade mensaje de cierre
+        adverse_effect.chat_messages.append({
+            'sender': 'system',
+            'message': 'Chat cerrado por profesional',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+        adverse_effect.status = 'IN_REVISION'
+        adverse_effect.chat_active = False
+        adverse_effect.save()
+        
+        return Response({'status': 'Chat cerrado'})
 
 class AlertNotificationViewSet(viewsets.ModelViewSet):
     serializer_class = AlertNotificationSerializer
@@ -818,7 +884,7 @@ class DashboardViewSet(viewsets.ViewSet):
 
         return Response({
             'pending': queryset.count(),
-            'urgent_pending': queryset.filter(severity__in=['GRAVE', 'MORTAL']).count(),
+            'urgent_pending': queryset.filter(severity__in=['GRAVE', 'MUY_GRAVE']).count(),
             'recent_pending': AdverseEffectSerializer(
                 queryset.order_by('-reported_at')[:5],
                 many=True
@@ -908,7 +974,7 @@ class DashboardViewSet(viewsets.ViewSet):
             'medication__nombre'
         ).annotate(
             total_reports=Count('id'),
-            severe_cases=Count('id', filter=Q(severity__in=['GRAVE', 'MORTAL'])),
+            severe_cases=Count('id', filter=Q(severity__in=['GRAVE', 'MUY_GRAVE'])),
             most_common_type=Max('type'),
             first_reported=Min('reported_at'),
             last_reported=Max('reported_at')
@@ -934,7 +1000,7 @@ class DashboardViewSet(viewsets.ViewSet):
         """Análisis por tipo de efecto"""
         return AdverseEffect.objects.values('type').annotate(
             count=Count('id'),
-            severe_cases=Count('id', filter=Q(severity__in=['GRAVE', 'MORTAL'])),
+            severe_cases=Count('id', filter=Q(severity__in=['GRAVE', 'MUY_GRAVE'])),
             medications_affected=Count('medication', distinct=True)
         ).order_by('-count')
 
@@ -980,7 +1046,7 @@ class DashboardViewSet(viewsets.ViewSet):
         # Preparar datos para el reporte
         report_data = {
             'total_reports': queryset.count(),
-            'severe_cases': queryset.filter(severity__in=['GRAVE', 'MORTAL']).count(),
+            'severe_cases': queryset.filter(severity__in=['GRAVE', 'MUY_GRAVE']).count(),
             'pending_cases': queryset.filter(status='PENDING').count(),
             'effects': [{
                 'medication': effect.medication.nombre,

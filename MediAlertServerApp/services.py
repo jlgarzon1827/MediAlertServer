@@ -73,7 +73,7 @@ class NotificationService:
             'LEVE': 'LOW',
             'MODERADA': 'MEDIUM',
             'GRAVE': 'HIGH',
-            'MORTAL': 'URGENT'
+            'MUY_GRAVE': 'URGENT'
         }
         
         priority = priority_map.get(adverse_effect.severity, 'MEDIUM')
