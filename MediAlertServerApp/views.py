@@ -906,7 +906,7 @@ class DashboardViewSet(viewsets.ViewSet):
         for effect in queryset:
             writer.writerow([
                 effect.reported_at.strftime("%Y-%m-%d"),
-                effect.medication.nombre,
+                effect.medication.medicamento_maestro.nombre,
                 effect.severity,
                 effect.type,
                 effect.description,
