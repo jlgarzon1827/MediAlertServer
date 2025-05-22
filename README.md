@@ -1,342 +1,194 @@
-MediAlert API Documentation
+MEDIALERT API - DOCUMENTACIÓN
+======================================
 
-Base URL: http://localhost:8000/api/
+URL BASE: http://localhost:8000/api/
 
-Authentication:
-- JWT (JSON Web Token) authentication
+AUTENTICACIÓN
+-------------
+- Sistema JWT (JSON Web Token)
+- Incluir en cabeceras: Authorization: Bearer <access_token>
+- Tokens:
+  * Access: 30 minutos de validez
+  * Refresh: 1 día de validez
+- Endpoints de autenticación:
+  POST /register/      Registrar nuevo usuario
+  POST /login/         Obtener tokens
+  POST /token/refresh/ Refrescar token de acceso
 
-User Management:
-1. Register
-   - POST /register/
-     Create a new user account
-     Body: {
-       "username": "your_username", 
-       "email": "your_email@example.com", 
-       "password": "your_password",
-       "is_professional": false,           // Optional, default: false
-       "professional_id": "",              // Optional, for professionals
-       "specialty": "",                    // Optional, for professionals
-       "institution": ""                   // Optional, for professionals
-     }
+GESTIÓN DE USUARIOS
+-------------------
+ENDPOINTS PRINCIPALES:
+- GET /users/me/              Obtener perfil actual
+- PUT /users/update_profile/  Actualizar datos de usuario
+- POST /users/{id}/set_role/  Cambiar rol de usuario (Admin)
 
-2. Login
-   - POST /login/
-     Authenticate user and obtain tokens
-     Body: {"username": "your_username", "password": "your_password"}
-     Response: {"access": "access_token", "refresh": "refresh_token"}
+REGISTRO DE USUARIO (POST /register/):
+{
+  "username": "nombre_usuario",
+  "email": "email@valido.com",
+  "password": "contraseña_segura",
+  "is_professional": false,
+  "professional_id": "OPCIONAL_PROFESIONALES",
+  "specialty": "OPCIONAL_PROFESIONALES",
+  "institution": 1
+}
 
-3. Refresh Token
-   - POST /token/refresh/
-     Obtain a new access token
-     Body: {"refresh": "your_refresh_token"}
+ACTUALIZACIÓN DE PERFIL (PUT /users/update_profile/):
+{
+  "first_name": "Nombre",
+  "profile": {
+    "phone": "+34 600 000 000",
+    "specialty": "Especialidad (profesionales)",
+    "institution": 2
+  }
+}
 
-4. User Profile
-   - GET /users/me/
-     Retrieve current user profile information
-     
-   - PUT /users/update_profile/
-     Update user profile information
-     Body: {
-       "first_name": "First Name",
-       "last_name": "Last Name",
-       "email": "email@example.com",
-       "profile": {
-         "phone": "123456789",
-         "specialty": "Specialty",         // For professionals
-         "institution": "Institution"      // For professionals
-       }
-     }
+GESTIÓN DE INSTITUCIONES
+------------------------
+ENDPOINTS:
+- GET /institutions/          Listar instituciones
+- POST /institutions/         Crear nueva (Admin)
+- PUT /institutions/{id}/     Actualizar (Admin/Supervisor)
+- DELETE /institutions/{id}/  Eliminar (Admin)
 
-Token Usage:
-- Use token in header: Authorization: Bearer <your_access_token>
+ESTRUCTURA DE INSTITUCIÓN:
+{
+  "id": 1,
+  "name": "Hospital General",
+  "address": "Calle Principal 123",
+  "phone": "555-1234",
+  "code": "HOSP-001"
+}
 
-Token Expiration:
-- Access token: 30 minutes
-- Refresh token: 1 day
+MEDICAMENTOS Y RECORDATORIOS
+----------------------------
+ENDPOINTS DE MEDICAMENTOS:
+- GET/POST /medicamentos/      Listar/Crear medicamentos
+- GET/PUT/DELETE /medicamentos/{id}/  Gestionar específico
 
-Endpoints:
+ENDPOINTS DE RECORDATORIOS:
+- POST /recordatorios/  Crear nuevo recordatorio
+{
+  "medicamento": 5,
+  "hora": "08:00:00",
+  "frecuencia": "DIARIA",
+  "dias_semana": "1,3,5",
+  "notificacion_previa": 15
+}
 
-1. Medicamentos
-   - GET /medicamentos/
-     Retrieve list of medications for authenticated user
-   - POST /medicamentos/
-     Create a new medication
-     Body: {"nombre": "Med Name", "dosis": "Dose", "frecuencia": "Frequency"}
-   - GET /medicamentos/{id}/
-     Retrieve specific medication details
-   - PUT /medicamentos/{id}/
-     Update medication details
-   - DELETE /medicamentos/{id}/
-     Delete a medication
+- GET /recordatorios/today/    Recordatorios para hoy
+- POST /recordatorios/{id}/toggle_active/  Activar/Desactivar
 
-2. Recordatorios
-   - GET /recordatorios/
-     Retrieve list of reminders for authenticated user
-   - POST /recordatorios/
-     Create a new reminder
-     Body: {
-       "medicamento": <medicamento_id>,
-       "dosis": "Dose",
-       "frecuencia": "DAILY|WEEKLY|MONTHLY|CUSTOM",
-       "hora": "HH:MM:SS",
-       "dias_semana": "1,2,3,4,5,6,7",     // Optional, for weekly frequency (1=Monday, 7=Sunday)
-       "fecha_fin": "YYYY-MM-DD",          // Optional
-       "activo": true,
-       "notas": "Notes",                   // Optional
-       "notificacion_previa": 15,          // Minutes before to notify, default: 0
-       "sonido": "default",                // Optional
-       "vibracion": true                   // Optional
-     }
-   - GET /recordatorios/{id}/
-     Retrieve specific reminder details
-   - PUT /recordatorios/{id}/
-     Update reminder details
-   - DELETE /recordatorios/{id}/
-     Delete a reminder
-   - POST /recordatorios/{id}/toggle_active/
-     Toggle the active status of a reminder
-   - GET /recordatorios/today/
-     Get reminders scheduled for today
-   - GET /recordatorios/upcoming/
-     Get reminders scheduled for the next 24 hours
+FARMACOVIGILANCIA
+-----------------
+ENDPOINTS PRINCIPALES:
+- POST /adverse-effects/  Reportar efecto adverso
+{
+  "medication": 12,
+  "description": "Descripción detallada",
+  "severity": "GRAVE",
+  "type": "B",
+  "institution": 1
+}
 
-3. Registros de Toma
-   - GET /registros-toma/
-     Retrieve list of intake records for authenticated user
-   - POST /registros-toma/
-     Create a new intake record
-     Body: {"recordatorio": <recordatorio_id>, "estado": "TOMADO|OMITIDO|POSPUESTO", "notas": "Notes"}
-   - GET /registros-toma/{id}/
-     Retrieve specific intake record details
-   - PUT /registros-toma/{id}/
-     Update intake record details
-   - DELETE /registros-toma/{id}/
-     Delete an intake record
-   - POST /registros-toma/{id}/tomar/
-     Mark medication as taken
-   - POST /registros-toma/{id}/posponer/
-     Postpone a reminder
-     Body: {"minutos": 15}                 // Minutes to postpone
-   - GET /registros-toma/by_date_range/
-     Get intake records by date range
-     Query Parameters:
-       - start_date: Start date (YYYY-MM-DD)
-       - end_date: End date (YYYY-MM-DD)
-   - GET /registros-toma/statistics/
-     Get intake statistics
-     Query Parameters:
-       - days: Number of days to analyze (default: 30)
+- GET /adverse-effects/filtered-reports/  Reportes filtrados
+  Parámetros: severity, type, from, to, status, institution
 
-4. Dispositivos
-   - GET /dispositivos/
-     Retrieve list of user devices
-   - POST /dispositivos/
-     Register a new device
-     Body: {
-       "token": "fcm_token",
-       "nombre_dispositivo": "Device Name",
-       "modelo": "Device Model",
-       "sistema_operativo": "Android",
-       "version_app": "1.0.0"
-     }
-   - DELETE /dispositivos/{id}/
-     Delete a device
-   - POST /dispositivos/register_token/
-     Simplified endpoint to register FCM token
-     Body: {"token": "fcm_token", "device_name": "Device Name"}
-   - POST /dispositivos/test_notification/
-     Send a test notification
-     Body: {"token": "fcm_token"}
+- POST /adverse-effects/{id}/assign-reviewer/  Asignar revisor
+{
+  "reviewer_id": 45
+}
 
-5. Farmacovigilancia
-   - GET /adverse-effects/
-     Retrieve list of adverse effects
-     Note: Regular users see only their own reports, professionals see all reports
-     Query Parameters:
-       - severity: Filter by severity (LEVE, MODERADA, GRAVE, MUY_GRAVE)
-       - type: Filter by type (A, B)
-       - from: Start date (YYYY-MM-DD)
-       - to: End date (YYYY-MM-DD)
+FLUJO DE TRABAJO:
+- POST /adverse-effects/{id}/start-review/     Iniciar revisión
+- POST /adverse-effects/{id}/request-additional-info/ Solicitar info
+- POST /adverse-effects/{id}/add-message/     Enviar mensaje al chat
 
-   - POST /adverse-effects/
-     Report new adverse effect
-     Body: {
-       "medication": <medication_id>,
-       "description": "Effect description",
-       "start_date": "YYYY-MM-DD",
-       "end_date": "YYYY-MM-DD",
-       "severity": "LEVE|MODERADA|GRAVE|MUY_GRAVE",
-       "type": "A|B",
-       "administration_route": "route",
-       "dosage": "dosage",
-       "frequency": "frequency"
-     }
+DASHBOARD PROFESIONAL
+---------------------
+ENDPOINTS ESTADÍSTICOS:
+- GET /dashboard/statistics/        Estadísticas generales
+- GET /dashboard/medication-statistics/  Estadísticas por medicamento
+- GET /dashboard/trends/            Tendencias temporales
 
-   - GET /adverse-effects/{id}/
-     Retrieve specific adverse effect details
+EXPORTACIÓN DE DATOS:
+- GET /dashboard/export-csv/    Exportar a CSV
+- GET /dashboard/export-json/   Exportar a JSON
+- GET /dashboard/generate_pdf_report/  Generar PDF
 
-   - PUT /adverse-effects/{id}/
-     Update adverse effect details
+NOTIFICACIONES
+--------------
+ENDPOINTS:
+- GET /notifications/          Listar todas
+- GET /notifications/unread/   No leídas
+- POST /notifications/{id}/mark-as-read/  Marcar como leída
 
-   - POST /adverse-effects/{id}/mark-as-reviewed/
-     Mark adverse effect as reviewed
-     Note: Requires professional access
+ESTRUCTURA DE NOTIFICACIÓN:
+ID | Título | Mensaje | Prioridad (BAJA/MEDIA/ALTA/URGENTE) | Fecha
 
-   - POST /adverse-effects/{id}/assign-reviewer/
-     Assign a reviewer to an adverse effect report.
-     Request Body: { "reviewer_id": number }
-     Response: { "status": "reviewer assigned" }
+ESTRUCTURAS DE DATOS
+--------------------
+USUARIO PROFESIONAL:
+{
+  "id": 45,
+  "user_type": "PROFESSIONAL",
+  "institution": {
+    "id": 2,
+    "name": "Clínica Privada"
+  },
+  "specialty": "Oncología"
+}
 
-6. Notifications
-   - GET /notifications/
-     Retrieve list of notifications for authenticated user
-     
-   - POST /notifications/{id}/mark-as-read/
-     Mark notification as read
-     
-   - GET /notifications/unread/
-     Retrieve unread notifications
+REPORTE COMPLETO:
+{
+  "id": 123,
+  "status": "EN_REVISION",
+  "chat_messages": [
+    {
+      "sender": "patient",
+      "message": "Síntomas desde las 10 AM",
+      "timestamp": "2023-08-20T10:30:00Z"
+    }
+  ],
+  "medication": {
+    "id": 12,
+    "nombre": "Ibuprofeno"
+  }
+}
 
-7. Dashboard (Professional Access Required)
-   - GET /dashboard/statistics/
-     Get general statistics of adverse effects
-     Response: {
-       "total_reports": number,
-       "by_severity": [{severity: string, count: number}],
-       "by_type": [{type: string, count: number}]
-     }
+ROLES Y PERMISOS
+----------------
+PACIENTE:
+- Gestionar sus medicamentos y reportes
+- Participar en chat de sus casos
 
-   - GET /dashboard/medication-statistics/
-     Get statistics grouped by medication
-     Response: {
-       "most_reported": [{medication: string, count: number}],
-       "by_severity": [{medication: string, severity: string, count: number}]
-     }
+PROFESIONAL:
+- Acceso a dashboard analítico
+- Revisar reportes asignados
+- Solicitar información adicional
 
-   - GET /dashboard/trends/
-     Get temporal analysis of adverse effects
-     Response: {
-       "daily_reports": [{date: string, count: number}],
-       "severity_trend": [{severity: string, count: number}]
-     }
+SUPERVISOR:
+- Gestionar instituciones
+- Asignar revisores
+- Exportar datos institucionales
 
-   - GET /dashboard/pending-reviews/
-     Get pending reviews information
-     Response: {
-       "pending": number,
-       "urgent_pending": number,
-       "recent_pending": [AdverseEffect]
-     }
+ADMIN:
+- Administración completa del sistema
+- Gestión de usuarios y roles
+- Auditoría de todas las operaciones
 
-   - GET /dashboard/filtered-reports/
-     Get filtered adverse effects reports
-     Query Parameters:
-       - severity: Filter by severity
-       - medication: Filter by medication name
-       - from: Start date (YYYY-MM-DD)
-       - to: End date (YYYY-MM-DD)
-     Response: {
-       "count": number,
-       "results": [AdverseEffect]
-     }
+CÓDIGOS DE ERROR
+----------------
+- 401: No autenticado
+- 403: Acceso prohibido
+- 404: Recurso no encontrado
+- 429: Demasiadas solicitudes
+- 500: Error interno del servidor
 
-   - GET /dashboard/export-csv/
-     Export adverse effects data as CSV
-     Query Parameters: [Same as filtered-reports]
-
-   - GET /dashboard/export-json/
-     Export adverse effects data as JSON
-     Query Parameters: [Same as filtered-reports]
-
-Data Structures:
-
-1. AdverseEffect:
-   {
-     "id": number,
-     "patient": number,
-     "medication": number,
-     "description": string,
-     "start_date": string,
-     "end_date": string,
-     "severity": string,
-     "type": string,
-     "administration_route": string,
-     "dosage": string,
-     "frequency": string,
-     "reported_at": string,
-     "status": string
-   }
-
-2. UserProfile:
-   {
-     "user_type": "PATIENT|PROFESSIONAL",
-     "professional_id": string,
-     "specialty": string,
-     "institution": string,
-     "phone": string
-   }
-
-3. Recordatorio:
-   {
-     "id": number,
-     "usuario": number,
-     "medicamento": number,
-     "medicamento_nombre": string,
-     "dosis": string,
-     "frecuencia": string,
-     "hora": string,
-     "dias_semana": string,
-     "fecha_inicio": string,
-     "fecha_fin": string,
-     "activo": boolean,
-     "notas": string,
-     "notificacion_previa": number,
-     "sonido": string,
-     "vibracion": boolean,
-     "created_at": string,
-     "updated_at": string
-   }
-
-4. RegistroToma:
-   {
-     "id": number,
-     "recordatorio": number,
-     "medicamento_nombre": string,
-     "fecha_programada": string,
-     "fecha_toma": string,
-     "estado": string,
-     "notas": string,
-     "created_at": string
-   }
-
-5. DispositivoUsuario:
-   {
-     "id": number,
-     "token": string,
-     "nombre_dispositivo": string,
-     "modelo": string,
-     "sistema_operativo": string,
-     "version_app": string,
-     "ultimo_acceso": string,
-     "activo": boolean
-   }
-
-6. AlertNotification:
-   {
-     "id": number,
-     "adverse_effect": number,
-     "title": string,
-     "message": string,
-     "priority": "LOW|MEDIUM|HIGH|URGENT",
-     "created_at": string,
-     "read_at": string
-   }
-
-Roles and Permissions:
-- All new users are assigned the "Patients" role by default
-- Users can be registered as professionals with the is_professional flag
-- Patients can only view and manage their own data
-- Professionals can access dashboard endpoints and view all adverse effect reports
-- Only professionals can mark reports as reviewed
-
-Note: All endpoints (except register and login) require authentication. Include the access token in the request header.
+NOTAS IMPORTANTES
+-----------------
+1. Formatos de fecha: YYYY-MM-DD (ISO 8601)
+2. Campos requeridos marcados en documentación
+3. Límite de tasa: 100 peticiones/minuto
+4. Todos los endpoints (excepto /register/ y /login/) requieren autenticación
+5. Zona horaria: UTC
